@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  database:
+    image: postgres:16
+    container_name: database
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: odoo
+      POSTGRES_DB: transportation_system
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - mynet
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        DEVICE: cpu
+    container_name: backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/app/video_test:/backend/app/video_test
+    depends_on:
+      - database
+    networks:
+      - mynet
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - mynet
+
+networks:
+  mynet:
+
+
+# docker compose up --build
+

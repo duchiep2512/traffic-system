@@ -1,0 +1,44 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+pnpm-lock.yaml
+pnpm-workspace.yaml
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+
+# app
+video_test
+__pycache__
+BACKEND_threading
+test.py 
+t.py 
+ideal_new.py
+fast_api.py
+tempCodeRunnerFile.py
+FRONTEND_for_testing
+main.ipynb
+ChatBot.py
+Test 
+.vscode
+todo.md
+Agent
