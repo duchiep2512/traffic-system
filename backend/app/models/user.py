@@ -1,17 +1,33 @@
-from sqlalchemy import Column, Integer, String
-from sqlalchemy.orm import relationship
-from app.db.base import Base
+"""
+User Model for MongoDB using Beanie
+"""
+from beanie import Document
+from typing import Optional, List
+from pydantic import Field
 
-class User(Base):
-    __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
-    username = Column(String(50), unique=True, nullable=False)
-    password = Column(String(255), nullable=False)
-    role_id = Column(Integer, default=1)  # 0=admin, 1=user
-    email = Column(String(255), unique=True, nullable=False)      # NEW: email
-    phone_number = Column(String(20), unique=True, nullable=False) # NEW: phone number
+class User(Document):
+    """
+    User document model cho MongoDB
     
-    # Relationships
-    chat_messages = relationship("ChatMessage", back_populates="user", cascade="all, delete-orphan")
+    Attributes:
+        username: Tên đăng nhập (unique)
+        password: Mật khẩu đã hash
+        role_id: Vai trò (0=admin, 1=user)
+        email: Email (unique)
+        phone_number: Số điện thoại (unique)
+    """
+    username: str = Field(..., min_length=1, max_length=50)
+    password: str = Field(..., min_length=1)
+    role_id: int = Field(default=1)  # 0=admin, 1=user
+    email: str = Field(..., min_length=1)
+    phone_number: str = Field(..., min_length=1, max_length=20)
     
+    class Settings:
+        name = "users"  # Collection name trong MongoDB
+        # Unique indexes sẽ được tạo tự động khi insert
+        # Cần tạo unique indexes thủ công trong MongoDB hoặc qua migration
+    
+    def __repr__(self):
+        user_id = str(self.id) if hasattr(self, 'id') else "None"
+        return f"<User(id={user_id}, username={self.username}, email={self.email})>"

@@ -10,6 +10,7 @@
 
 import { Navigate, useLocation, Outlet } from 'react-router-dom';
 import { LOCAL_CONFIG, isDevelopment, authConfig } from '@/config';
+import { getToken, setToken } from '@/utils/authStorage';
 
 export function ProtectedRoute() {
   const location = useLocation();
@@ -25,18 +26,12 @@ export function ProtectedRoute() {
       role_id: 1
     };
     
-    // Lưu token và user vào localStorage (giả lập đăng nhập)
+    // Lưu token và user vào sessionStorage (giả lập đăng nhập)
     // Dùng authConfig.TOKEN_KEY để nhất quán với App.tsx
-    const tokenKey = authConfig.TOKEN_KEY; // "access_token"
-    if (!localStorage.getItem(tokenKey)) {
-      localStorage.setItem(tokenKey, LOCAL_CONFIG.MOCK_TOKEN);
+    if (!getToken()) {
+      setToken(LOCAL_CONFIG.MOCK_TOKEN);
       localStorage.setItem('user', JSON.stringify(mockUser));
       console.log('✅ Mock user created:', mockUser);
-    }
-    
-    // Đảm bảo App.tsx cũng nhận được token
-    if (!localStorage.getItem('access_token')) {
-      localStorage.setItem('access_token', LOCAL_CONFIG.MOCK_TOKEN);
     }
     
     // Cho phép truy cập tất cả routes
@@ -44,7 +39,7 @@ export function ProtectedRoute() {
   }
   
   // 🔐 Logic authentication thật (dùng cho production)
-  const token = localStorage.getItem(authConfig.TOKEN_KEY);
+  const token = getToken();
   
   if (!token) {
     // Chưa đăng nhập -> redirect về trang login

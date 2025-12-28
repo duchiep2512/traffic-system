@@ -1,7 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
 from app.core.security import hash_password, verify_password
-from app.db.base import get_db
 from app.models.user import User
 from app.utils.jwt_handler import get_current_user
 from typing import Optional
@@ -21,7 +19,6 @@ class PasswordUpdateRequest(BaseModel):
 async def update_password(
     request: PasswordUpdateRequest,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
 ):
     """
     Update user password. Requires:
@@ -38,14 +35,12 @@ async def update_password(
     # Hash new password
     hashed_password = hash_password(request.new_password)
     
-    # Update password in database
+    # Update password in MongoDB
     try:
-        db_user = db.query(User).filter(User.id == current_user.id).first()
-        db_user.password = hashed_password
-        db.commit()
+        current_user.password = hashed_password
+        await current_user.save()
         return {"message": "Cập nhật mật khẩu thành công!"}
     except Exception as e:
-        db.rollback()
         raise HTTPException(
             status_code=500,
             detail="Đã xảy ra lỗi khi cập nhật mật khẩu. Vui lòng thử lại sau."
@@ -64,37 +59,35 @@ class ProfileUpdateRequest(BaseModel):
 async def update_profile(
     request: ProfileUpdateRequest,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
 ):
     """
     Update user profile information. Requires JWT authentication.
     """
     try:
-        db_user = db.query(User).filter(User.id == current_user.id).first()
-        
         # Check for unique constraints
-        if request.username and request.username != db_user.username:
-            if db.query(User).filter(User.username == request.username).first():
+        if request.username and request.username != current_user.username:
+            existing = await User.find_one(User.username == request.username)
+            if existing:
                 raise HTTPException(status_code=400, detail="Tên đăng nhập đã tồn tại!")
-            db_user.username = request.username
+            current_user.username = request.username
             
-        if request.email and request.email != db_user.email:
-            if db.query(User).filter(User.email == request.email).first():
+        if request.email and request.email != current_user.email:
+            existing = await User.find_one(User.email == request.email)
+            if existing:
                 raise HTTPException(status_code=400, detail="Email đã được sử dụng!")
-            db_user.email = request.email
+            current_user.email = request.email
             
-        if request.phone_number and request.phone_number != db_user.phone_number:
-            if db.query(User).filter(User.phone_number == request.phone_number).first():
+        if request.phone_number and request.phone_number != current_user.phone_number:
+            existing = await User.find_one(User.phone_number == request.phone_number)
+            if existing:
                 raise HTTPException(status_code=400, detail="Số điện thoại đã được sử dụng!")
-            db_user.phone_number = request.phone_number
+            current_user.phone_number = request.phone_number
 
-        db.commit()
+        await current_user.save()
         return {"message": "Cập nhật thông tin thành công!"}
     except HTTPException:
-        db.rollback()
         raise
     except Exception as e:
-        db.rollback()
         raise HTTPException(
             status_code=500, 
             detail="Đã xảy ra lỗi khi cập nhật thông tin. Vui lòng thử lại sau."

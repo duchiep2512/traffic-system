@@ -50,12 +50,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await update.message.reply_text(f"❌ Lỗi khi xử lý ảnh: {str(img_err)}")
                     
     except requests.exceptions.Timeout:
-        await update.message.reply_text("⏱️ API phản hồi quá lâu, vui lòng thử lại!")
+        await update.message.reply_text(" API phản hồi quá lâu, vui lòng thử lại!")
     except requests.exceptions.RequestException as e:
-        await update.message.reply_text(f"❌ Lỗi kết nối API: {str(e)}")
+        await update.message.reply_text(f" Lỗi kết nối API: {str(e)}")
     except Exception as e:
         logging.error(f"Lỗi không mong đợi: {e}")
-        await update.message.reply_text(f"❌ Có lỗi xảy ra: {str(e)}")
+        await update.message.reply_text(f" Có lỗi xảy ra: {str(e)}")
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()

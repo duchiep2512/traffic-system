@@ -5,6 +5,7 @@ import { useWebSocket } from "@/hooks/useWebSocket";
 import { getApiUrl, getWsUrl } from "@/config/settings";
 import { authConfig } from "@/config";
 import { useNavigate } from "react-router-dom";
+import { getToken } from "@/utils/authStorage";
 import {
   ResponsiveContainer,
   LineChart,
@@ -51,7 +52,7 @@ export default function AdminPage() {
   const token = useMemo(
     () =>
       typeof window !== "undefined"
-        ? localStorage.getItem(authConfig.TOKEN_KEY)
+        ? getToken()
         : null,
     []
   );

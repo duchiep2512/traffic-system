@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_URL, LOCAL_CONFIG, isDevelopment, authConfig } from '@/config';
+import { getToken, removeToken } from '@/utils/authStorage';
 
 // Tạo axios instance
 const apiClient = axios.create({
@@ -13,7 +14,7 @@ const apiClient = axios.create({
 // Request interceptor: tự động thêm token
 apiClient.interceptors.request.use(
   (config) => {
-    let token = localStorage.getItem(authConfig.TOKEN_KEY);
+    let token = getToken();
     
     // Trong local dev, dùng mock token nếu không có token
     if (isDevelopment && !token) {
@@ -38,7 +39,7 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       console.error('❌ Unauthorized - clearing token');
-      localStorage.removeItem(authConfig.TOKEN_KEY);
+      removeToken();
       localStorage.removeItem('user');
       
       // Redirect to login (nếu không phải local dev)

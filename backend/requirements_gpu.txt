@@ -22,10 +22,14 @@ pydantic
 python-dotenv
 
 # Database and authentication
-sqlalchemy[asyncio]
-asyncpg
-alembic
-psycopg2-binary
+# MongoDB
+motor
+beanie
+# PostgreSQL (có thể xóa nếu không cần)
+# sqlalchemy[asyncio]
+# asyncpg
+# alembic
+# psycopg2-binary
 passlib
 passlib[bcrypt]==1.7.4
 bcrypt==4.0.1

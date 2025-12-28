@@ -1,52 +1,43 @@
 """
-Chat Message Model for PostgreSQL
+Chat Message Model for MongoDB using Beanie
 Lưu trữ lịch sử chat của users
 """
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, JSON
-from sqlalchemy.orm import relationship
+from beanie import Document
+from pydantic import Field
+from typing import Optional, List, Dict, Any
 from datetime import datetime
-from app.db.base import Base
 
 
-class ChatMessage(Base):
+class ChatMessage(Document):
     """
-    Model để lưu tin nhắn chat
+    Model để lưu tin nhắn chat trong MongoDB
     
     Attributes:
-        id: Primary key
-        user_id: Foreign key đến User
+        user_id: ID của user (ObjectId hoặc string)
         message: Nội dung tin nhắn
         is_user: True nếu là tin nhắn của user, False nếu là AI
         images: JSON array chứa URLs ảnh (nếu có)
         created_at: Thời gian tạo
         extra_data: JSON field cho thông tin bổ sung (traffic data, context, etc.)
     """
-    __tablename__ = "chat_messages"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_id: str = Field(..., description="ID của user")
+    message: str = Field(..., description="Nội dung tin nhắn")
+    is_user: bool = Field(default=True, description="True = user, False = AI")
+    images: Optional[List[str]] = Field(default=None, description="Array URLs của ảnh đính kèm")
+    extra_data: Optional[Dict[str, Any]] = Field(default=None, description="Thông tin bổ sung")
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="Thời gian tạo")
     
-    # Nội dung tin nhắn
-    message = Column(Text, nullable=False)
-    is_user = Column(Boolean, default=True, nullable=False)  # True = user, False = AI
+    class Settings:
+        name = "chat_messages"  # Collection name trong MongoDB
+        indexes = [
+            [("user_id", 1)],  # Index cho user_id để query nhanh
+            [("created_at", 1)],  # Index cho created_at để sort
+        ]
     
-    # Ảnh đính kèm (JSON array of URLs)
-    images = Column(JSON, nullable=True)
-    # Example: ["http://localhost:8000/api/v1/roads/road1/frames/latest", ...]
-    
-    # Extra data bổ sung (avoid 'metadata' - reserved by SQLAlchemy)
-    extra_data = Column(JSON, nullable=True)
-    # Example: {"traffic_data": {...}, "intent": "traffic_query", "response_time_ms": 250}
-    
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
-    
-    # Relationships
-    user = relationship("User", back_populates="chat_messages")
-
     def __repr__(self):
-        return f"<ChatMessage(id={self.id}, user_id={self.user_id}, is_user={self.is_user})>"
-
+        msg_id = str(self.id) if hasattr(self, 'id') else "None"
+        return f"<ChatMessage(id={msg_id}, user_id={self.user_id}, is_user={self.is_user})>"
+    
     def to_dict(self):
         """Convert to dict for API response"""
         return {

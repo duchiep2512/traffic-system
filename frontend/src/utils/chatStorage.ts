@@ -4,6 +4,7 @@
  */
 
 import { authConfig } from "../config";
+import { getToken } from "./authStorage";
 
 interface Message {
   id: string;
@@ -18,7 +19,7 @@ interface Message {
  * Get chat history key for current user
  */
 export const getChatHistoryKey = (): string => {
-  const token = localStorage.getItem(authConfig.TOKEN_KEY);
+  const token = getToken();
   const key = token
     ? `chat_history_${token.substring(0, 10)}`
     : "chat_history_guest";
@@ -36,7 +37,7 @@ export const getChatHistoryKey = (): string => {
  * Get draft key for current user
  */
 export const getChatDraftKey = (): string => {
-  const token = localStorage.getItem(authConfig.TOKEN_KEY);
+  const token = getToken();
   return token ? `chat_draft_${token.substring(0, 10)}` : "chat_draft_guest";
 };
 
@@ -184,7 +185,7 @@ export const clearAllUsersData = (): void => {
 export const debugChatStorage = (): void => {
   console.log("=== Chat Storage Debug Info ===");
 
-  const token = localStorage.getItem(authConfig.TOKEN_KEY);
+  const token = getToken();
   console.log("Current token:", token?.substring(0, 20) + "...");
   console.log("Token prefix:", token?.substring(0, 10) || "none");
 

@@ -4,6 +4,7 @@
  */
 
 import { authConfig, apiConfig } from "../config";
+import { getToken } from "@/utils/authStorage";
 
 export interface Message {
   id: string;
@@ -31,7 +32,10 @@ export const fetchChatHistory = async (
   offset: number = 0
 ): Promise<Message[]> => {
   try {
-    const token = localStorage.getItem(authConfig.TOKEN_KEY);
+    const token = getToken();
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'chatHistoryService.ts:29',message:'fetchChatHistory called',data:{limit,offset,tokenPrefix:token?.substring(0,20)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     if (!token) {
       console.warn("No token found, cannot fetch chat history");
       return [];
@@ -46,11 +50,18 @@ export const fetchChatHistory = async (
       }
     );
 
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'chatHistoryService.ts:48',message:'fetchChatHistory response',data:{status:response.status,statusText:response.statusText,ok:response.ok},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
     const data: ServerMessage[] = await response.json();
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'chatHistoryService.ts:53',message:'fetchChatHistory data received',data:{messageCount:data.length,firstMessageId:data[0]?.id,lastMessageId:data[data.length-1]?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
 
     // Convert to frontend format
     return data.map((msg) => ({
@@ -62,6 +73,9 @@ export const fetchChatHistory = async (
     }));
   } catch (error) {
     console.error("Error fetching chat history from server:", error);
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'chatHistoryService.ts:64',message:'fetchChatHistory error',data:{error:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     return [];
   }
 };
@@ -75,9 +89,15 @@ export const saveMessageToServer = async (
   images?: string[]
 ): Promise<boolean> => {
   try {
-    const token = localStorage.getItem(authConfig.TOKEN_KEY);
+    const token = getToken();
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'chatHistoryService.ts:72',message:'saveMessageToServer called',data:{message:message.substring(0,50),isUser,hasImages:!!images,tokenPrefix:token?.substring(0,20)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
     if (!token) {
       console.warn("No token found, cannot save message");
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'chatHistoryService.ts:79',message:'No token found',data:{message:message.substring(0,50)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
       return false;
     }
 
@@ -97,13 +117,24 @@ export const saveMessageToServer = async (
       }),
     });
 
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'chatHistoryService.ts:99',message:'saveMessageToServer response',data:{status:response.status,statusText:response.statusText,ok:response.ok,message:message.substring(0,50)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
+
     if (!response.ok) {
+      const errorText = await response.text();
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'chatHistoryService.ts:102',message:'saveMessageToServer error response',data:{status:response.status,statusText:response.statusText,errorText:errorText.substring(0,200),message:message.substring(0,50)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
     return true;
   } catch (error) {
     console.error("Error saving message to server:", error);
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'chatHistoryService.ts:108',message:'saveMessageToServer exception',data:{error:String(error),message:message.substring(0,50)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     return false;
   }
 };
@@ -113,7 +144,7 @@ export const saveMessageToServer = async (
  */
 export const clearServerChatHistory = async (): Promise<boolean> => {
   try {
-    const token = localStorage.getItem(authConfig.TOKEN_KEY);
+    const token = getToken();
     if (!token) {
       return false;
     }
@@ -137,7 +168,7 @@ export const clearServerChatHistory = async (): Promise<boolean> => {
  */
 export const getServerMessageCount = async (): Promise<number> => {
   try {
-    const token = localStorage.getItem(authConfig.TOKEN_KEY);
+    const token = getToken();
     if (!token) {
       return 0;
     }

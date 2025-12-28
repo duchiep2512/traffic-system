@@ -5,6 +5,7 @@ import { Button } from "@/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/ui/card";
 import { Eye, EyeOff, Mail, Lock, Car } from "lucide-react";
 import { authConfig } from "@/config";
+import { setToken } from "@/utils/authStorage";
 
 function Login({ onLoginSuccess }: { onLoginSuccess?: () => void }) {
   const navigate = useNavigate();
@@ -31,7 +32,25 @@ function Login({ onLoginSuccess }: { onLoginSuccess?: () => void }) {
       });
       const data = await res.json();
       if (res.ok && data.access_token) {
-        localStorage.setItem(authConfig.TOKEN_KEY, data.access_token);
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'LoginForm.tsx:33',message:'Login successful',data:{tokenPrefix:data.access_token.substring(0,20),email},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        
+        // Clear old chat data before setting new token
+        const { clearAllChatData } = await import("@/utils/chatStorage");
+        clearAllChatData();
+        
+        setToken(data.access_token);
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'LoginForm.tsx:42',message:'Token saved and event dispatched',data:{tokenPrefix:data.access_token.substring(0,20)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        
+        // Dispatch custom event to notify ChatInterface of token change
+        window.dispatchEvent(new CustomEvent('tokenChanged', { 
+          detail: { token: data.access_token } 
+        }));
+        
         onLoginSuccess?.();
         navigate("/home");
       } else {

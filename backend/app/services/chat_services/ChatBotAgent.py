@@ -115,11 +115,67 @@ class ChatBotAgent:
         })
         # endregion agent log
         try:
+            # region agent log
+            _agent_log({
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "H6",
+                "location": "ChatBotAgent.get_response",
+                "message": "before_invoke",
+                "data": {"user_input": user_input, "thread_id": id},
+                "timestamp": int(time.time() * 1000),
+            })
+            # endregion agent log
+            
             response = await self.agent.ainvoke(
                 {"messages": [{"role": "user", "content": user_input}]},
                 config = config
             )
-            data = response['structured_response'].model_dump()
+            
+            # region agent log
+            _agent_log({
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "H7",
+                "location": "ChatBotAgent.get_response",
+                "message": "after_invoke",
+                "data": {
+                    "response_keys": list(response.keys()) if isinstance(response, dict) else None,
+                    "has_structured_response": 'structured_response' in response if isinstance(response, dict) else False,
+                    "has_messages": 'messages' in response if isinstance(response, dict) else False,
+                    "messages_count": len(response.get('messages', [])) if isinstance(response, dict) else 0,
+                },
+                "timestamp": int(time.time() * 1000),
+            })
+            # endregion agent log
+            
+            # Try to get structured_response, fall back to messages if not available
+            if 'structured_response' in response and response['structured_response']:
+                data = response['structured_response'].model_dump()
+            else:
+                # Fallback: extract from messages
+                messages = response.get('messages', [])
+                if messages:
+                    last_message = messages[-1]
+                    content = last_message.content if hasattr(last_message, 'content') else str(last_message)
+                    data = {"message": content, "image": []}
+                else:
+                    data = {"message": "Không nhận được phản hồi từ AI", "image": []}
+            
+            # region agent log
+            _agent_log({
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "H8",
+                "location": "ChatBotAgent.get_response",
+                "message": "final_data",
+                "data": {
+                    "data": data,
+                    "message_preview": data.get("message", "")[:200] if isinstance(data, dict) else None,
+                },
+                "timestamp": int(time.time() * 1000),
+            })
+            # endregion agent log
 
             # Extract image URLs from message text if model didn't populate image[]
             if isinstance(data, dict):

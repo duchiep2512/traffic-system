@@ -4,9 +4,6 @@ from app.core.config import SettingServer
 from fastapi import Depends, HTTPException, status, Request, WebSocket
 from fastapi.security import OAuth2PasswordBearer
 from app.models.user import User
-from app.db.base import get_db
-from sqlalchemy.future import select
-from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, Union
 
 # Tạo instance của SettingServer
@@ -76,8 +73,7 @@ def decode_access_token(token: str) -> dict|None:
         return None
 
 async def get_current_user(
-    token: Optional[str] = Depends(oauth2_scheme),
-    db: AsyncSession = Depends(get_db)
+    token: Optional[str] = Depends(oauth2_scheme)
 ) -> User:
     """
     HTTP-only dependency: xác thực qua OAuth2 Bearer token trong Authorization header.
@@ -92,7 +88,7 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    user = await get_user_by_token(token, db)
+    user = await get_user_by_token(token)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -101,66 +97,8 @@ async def get_current_user(
         )
     return user
 
-# async def get_current_user(
-#     request: Request,
-#     db: AsyncSession = Depends(get_db)
-# ) -> User:
-#     """
-#     HTTP dependency linh hoạt: chấp nhận token từ nhiều nguồn.
-    
-#     Thứ tự ưu tiên:
-#     1. Authorization header (Bearer token)
-#     2. Cookie (access_token)
-#     3. Query parameter (?token=...)
-    
-#     ⚠️ LƯU Ý BẢO MẬT:
-#     - Query params có thể bị ghi log vào server/proxy logs → rủi ro lộ token
-#     - Cookies yêu cầu cấu hình CORS/SameSite đúng
-#     - Authorization header là phương thức an toàn nhất cho API
-    
-#     Sử dụng khi:
-#     - Cần hỗ trợ nhiều client types (browser, mobile, desktop)
-#     - Frontend không thể đặt Authorization header dễ dàng
-#     - Cần backward compatibility với legacy systems
-    
-#     Ví dụ sử dụng:
-#     ```python
-#     @router.get("/profile")
-#     async def get_profile(user: User = Depends(get_current_user_flexible)):
-#         return {"email": user.email, "username": user.username}
-#     ```
-    
-#     Args:
-#         request: FastAPI Request object
-#         db: Database session
-        
-#     Returns:
-#         User: Authenticated user object
-        
-#     Raises:
-#         HTTPException: 401 nếu token không tồn tại hoặc không hợp lệ
-#     """
-#     token = extract_token(request)
-    
-#     if not token:
-#         raise HTTPException(
-#             status_code=status.HTTP_401_UNAUTHORIZED,
-#             detail="Token không hợp lệ hoặc không tồn tại. Vui lòng cung cấp token qua Authorization header, cookie hoặc query parameter.",
-#             headers={"WWW-Authenticate": "Bearer"},
-#         )
-    
-#     user = await get_user_by_token(token, db)
-#     if not user:
-#         raise HTTPException(
-#             status_code=status.HTTP_401_UNAUTHORIZED,
-#             detail="Token không hợp lệ hoặc user không tồn tại.",
-#             headers={"WWW-Authenticate": "Bearer"},
-#         )
-#     return user
-
 async def get_current_user_ws(
-    websocket: WebSocket,
-    db: AsyncSession = Depends(get_db)
+    websocket: WebSocket
 ) -> User:
     """
     WebSocket-only dependency: lấy token linh hoạt từ header/cookie/query params.
@@ -175,7 +113,7 @@ async def get_current_user_ws(
             detail="Token không hợp lệ hoặc không tồn tại.",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    user = await get_user_by_token(token, db)
+    user = await get_user_by_token(token)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -184,22 +122,60 @@ async def get_current_user_ws(
         )
     return user
 
-async def get_user_by_token(token: str, db: AsyncSession) -> Optional[User]:
-    """Hàm dùng cho websocket hoặc các trường hợp cần truyền token/db trực tiếp
+async def get_user_by_token(token: str) -> Optional[User]:
+    """Hàm dùng cho websocket hoặc các trường hợp cần truyền token trực tiếp
 
     Args:
         token (str): token JWT cần xác thực
-        db (AsyncSession): phiên làm việc với cơ sở dữ liệu
 
     Returns:
         Optional[User]: người dùng tương ứng với token nếu hợp lệ, ngược lại trả về None
     """
+    import json
+    import os
+    log_data = {
+        "location": "jwt_handler.py:125",
+        "message": "get_user_by_token called",
+        "data": {
+            "tokenPrefix": token[:20] if token else None,
+        },
+        "timestamp": int(__import__('time').time() * 1000),
+        "sessionId": "debug-session",
+        "runId": "run1",
+        "hypothesisId": "E"
+    }
+    try:
+        with open(r"d:\seminar\.cursor\debug.log", "a", encoding="utf-8") as f:
+            f.write(json.dumps(log_data, ensure_ascii=False) + "\n")
+    except:
+        pass
+    
     payload = decode_access_token(token)
     if payload is None:
         return None
     email = payload.get("sub")
     if email is None:
         return None
-    result = await db.execute(select(User).where(User.email == email))
-    user = result.scalar()
+    # Tìm user trong MongoDB
+    user = await User.find_one(User.email == email)
+    
+    log_data2 = {
+        "location": "jwt_handler.py:141",
+        "message": "get_user_by_token result",
+        "data": {
+            "email": email,
+            "user_id": str(user.id) if user else None,
+            "username": user.username if user else None,
+        },
+        "timestamp": int(__import__('time').time() * 1000),
+        "sessionId": "debug-session",
+        "runId": "run1",
+        "hypothesisId": "E"
+    }
+    try:
+        with open(r"d:\seminar\.cursor\debug.log", "a", encoding="utf-8") as f:
+            f.write(json.dumps(log_data2, ensure_ascii=False) + "\n")
+    except:
+        pass
+    
     return user

@@ -1,17 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response
 from fastapi.security import OAuth2PasswordRequestForm  
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
 from app.models.user import User
 from app.schemas.user import UserCreate, UserUpdate, UserOut
 from app.core.security import hash_password, verify_password
-from app.db.base import get_db
 from app.utils.jwt_handler import create_access_token, get_current_user
 from app.core.config import SettingServer
+from pymongo.errors import DuplicateKeyError
 
 # Tạo instance của SettingServer
 settings_server = SettingServer()
-from sqlalchemy.exc import IntegrityError
 
 router = APIRouter(prefix="/auth")
 
@@ -21,20 +18,44 @@ router = APIRouter(prefix="/auth")
     description="API đăng ký user mới với thông tin username, password, email và phone_number. Username, email và số điện thoại phải là duy nhất trong hệ thống.",
     status_code=201
 )
-async def register(user: UserCreate, db: AsyncSession = Depends(get_db)):
+async def register(user: UserCreate):
+    """Đăng ký user mới với MongoDB"""
+    # Kiểm tra xem username, email hoặc phone_number đã tồn tại chưa
+    existing_user = await User.find_one({
+        "$or": [
+            {"username": user.username},
+            {"email": user.email},
+            {"phone_number": user.phone_number}
+        ]
+    })
+    
+    if existing_user:
+        raise HTTPException(
+            status_code=400, 
+            detail="Username, email hoặc số điện thoại đã tồn tại!"
+        )
+    
+    # Tạo user mới
     new_user = User(
         username=user.username,
         password=hash_password(user.password),
         email=user.email,
         phone_number=user.phone_number
     )
-    db.add(new_user)
+    
     try:
-        await db.commit()
+        await new_user.insert()
         return {"msg": "Đăng ký thành công"}
-    except IntegrityError:
-        await db.rollback()
-        raise HTTPException(status_code=400, detail="Username, email hoặc số điện thoại đã tồn tại!")
+    except DuplicateKeyError:
+        raise HTTPException(
+            status_code=400, 
+            detail="Username, email hoặc số điện thoại đã tồn tại!"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Lỗi khi đăng ký: {str(e)}"
+        )
 
 @router.post(
     path= "/login",
@@ -43,7 +64,6 @@ async def register(user: UserCreate, db: AsyncSession = Depends(get_db)):
 )
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(), 
-    db: AsyncSession = Depends(get_db),
     response: Response = None,
 ):
     """
@@ -53,11 +73,8 @@ async def login(
     - username field: nhập email
     - password field: nhập password
     """
-    q = select(User).where(
-        User.email == form_data.username
-    )
-    result = await db.execute(q)
-    user_db = result.scalar()
+    # Tìm user theo email
+    user_db = await User.find_one(User.email == form_data.username)
     
     if not user_db or not verify_password(form_data.password, user_db.password):
         raise HTTPException(
@@ -69,7 +86,7 @@ async def login(
     # Build full user claims for the JWT (avoid sensitive fields like password)
     token_payload = {
         "sub": user_db.email,  # keep for backward compatibility
-        "uid": user_db.id,
+        "uid": str(user_db.id),  # MongoDB ObjectId -> string
         "username": user_db.username,
         "email": user_db.email,
         "phone_number": user_db.phone_number,
@@ -105,4 +122,12 @@ async def login(
 )
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     """Lấy thông tin user hiện tại"""
-    return current_user
+    # Convert User model to UserOut schema
+    # Beanie Document.id is ObjectId, convert to string for JSON serialization
+    return UserOut(
+        id=str(current_user.id),
+        username=current_user.username,
+        email=current_user.email,
+        phone_number=current_user.phone_number,
+        role_id=current_user.role_id
+    )

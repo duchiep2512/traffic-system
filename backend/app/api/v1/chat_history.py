@@ -1,11 +1,8 @@
 """
 Chat History API Endpoints
-Lưu và lấy lịch sử chat của user
+Lưu và lấy lịch sử chat của user với MongoDB
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
-from sqlalchemy import delete
 from typing import List, Optional
 from datetime import datetime
 
@@ -18,7 +15,6 @@ from app.schemas.ChatMessage import (
     ChatMessageListResponse,
     ChatHistoryQuery,
 )
-from app.db.base import get_db
 
 router = APIRouter()
 
@@ -33,7 +29,6 @@ router = APIRouter()
 async def create_chat_message(
     message_data: ChatMessageCreate,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
 ):
     """
     Lưu một tin nhắn chat mới
@@ -43,17 +38,56 @@ async def create_chat_message(
     - **images**: Array URLs của ảnh đính kèm (optional)
     - **extra_data**: Thông tin bổ sung như traffic data, intent, etc. (optional)
     """
+    import json
+    import os
+    log_data = {
+        "location": "chat_history.py:41",
+        "message": "Creating chat message",
+        "data": {
+            "user_id": str(current_user.id),
+            "user_email": current_user.email if hasattr(current_user, 'email') else None,
+            "username": current_user.username if hasattr(current_user, 'username') else None,
+            "message_preview": message_data.message[:50] if message_data.message else None,
+            "is_user": message_data.is_user,
+        },
+        "timestamp": int(__import__('time').time() * 1000),
+        "sessionId": "debug-session",
+        "runId": "run1",
+        "hypothesisId": "E"
+    }
+    try:
+        with open(r"d:\seminar\.cursor\debug.log", "a", encoding="utf-8") as f:
+            f.write(json.dumps(log_data, ensure_ascii=False) + "\n")
+    except:
+        pass
+    
     new_message = ChatMessage(
-        user_id=current_user.id,
+        user_id=str(current_user.id),
         message=message_data.message,
         is_user=message_data.is_user,
         images=message_data.images,
         extra_data=message_data.extra_data,
     )
     
-    db.add(new_message)
-    await db.commit()
-    await db.refresh(new_message)
+    await new_message.insert()
+    
+    log_data2 = {
+        "location": "chat_history.py:49",
+        "message": "Chat message saved",
+        "data": {
+            "message_id": str(new_message.id),
+            "user_id": str(current_user.id),
+        },
+        "timestamp": int(__import__('time').time() * 1000),
+        "sessionId": "debug-session",
+        "runId": "run1",
+        "hypothesisId": "E"
+    }
+    try:
+        with open(r"d:\seminar\.cursor\debug.log", "a", encoding="utf-8") as f:
+            f.write(json.dumps(log_data2, ensure_ascii=False) + "\n")
+    except:
+        pass
     
     return new_message
 
@@ -69,7 +103,6 @@ async def get_chat_history(
     offset: int = Query(default=0, ge=0),
     since: Optional[datetime] = Query(default=None),
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
 ):
     """
     Lấy lịch sử chat của user hiện tại
@@ -80,17 +113,56 @@ async def get_chat_history(
     
     Returns danh sách tin nhắn theo thứ tự thời gian (cũ → mới)
     """
-    query = select(ChatMessage).where(ChatMessage.user_id == current_user.id)
+    import json
+    log_data = {
+        "location": "chat_history.py:75",
+        "message": "Fetching chat history",
+        "data": {
+            "user_id": str(current_user.id),
+            "user_email": current_user.email if hasattr(current_user, 'email') else None,
+            "username": current_user.username if hasattr(current_user, 'username') else None,
+            "limit": limit,
+            "offset": offset,
+        },
+        "timestamp": int(__import__('time').time() * 1000),
+        "sessionId": "debug-session",
+        "runId": "run1",
+        "hypothesisId": "B"
+    }
+    try:
+        with open(r"d:\seminar\.cursor\debug.log", "a", encoding="utf-8") as f:
+            f.write(json.dumps(log_data, ensure_ascii=False) + "\n")
+    except:
+        pass
+    
+    # Build query - Beanie syntax
+    find_query = ChatMessage.find(ChatMessage.user_id == str(current_user.id))
     
     # Filter by timestamp if provided
     if since:
-        query = query.where(ChatMessage.created_at > since)
+        find_query = find_query.find(ChatMessage.created_at > since)
     
-    # Order by created_at ascending (oldest first)
-    query = query.order_by(ChatMessage.created_at.asc()).offset(offset).limit(limit)
+    # Order by created_at ascending (oldest first), pagination
+    messages = await find_query.sort("+created_at").skip(offset).limit(limit).to_list()
     
-    result = await db.execute(query)
-    messages = result.scalars().all()
+    import json
+    log_data2 = {
+        "location": "chat_history.py:83",
+        "message": "Chat history fetched",
+        "data": {
+            "user_id": str(current_user.id),
+            "message_count": len(messages),
+        },
+        "timestamp": int(__import__('time').time() * 1000),
+        "sessionId": "debug-session",
+        "runId": "run1",
+        "hypothesisId": "B"
+    }
+    try:
+        with open(r"d:\seminar\.cursor\debug.log", "a", encoding="utf-8") as f:
+            f.write(json.dumps(log_data2, ensure_ascii=False) + "\n")
+    except:
+        pass
     
     # Convert to frontend format
     return [
@@ -114,15 +186,11 @@ async def get_chat_history(
 )
 async def clear_chat_history(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
 ):
     """
     Xóa toàn bộ lịch sử chat của user hiện tại
     """
-    await db.execute(
-        delete(ChatMessage).where(ChatMessage.user_id == current_user.id)
-    )
-    await db.commit()
+    await ChatMessage.find(ChatMessage.user_id == str(current_user.id)).delete()
     
     return None
 
@@ -134,27 +202,34 @@ async def clear_chat_history(
     description="API xóa một tin nhắn chat theo ID. User chỉ có thể xóa tin nhắn của chính mình. Yêu cầu JWT authentication."
 )
 async def delete_chat_message(
-    message_id: int,
+    message_id: str,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
 ):
     """
     Xóa một tin nhắn cụ thể
     
     User chỉ có thể xóa tin nhắn của chính mình
     """
-    query = select(ChatMessage).where(
-        ChatMessage.id == message_id,
-        ChatMessage.user_id == current_user.id,
-    )
-    result = await db.execute(query)
-    message = result.scalar_one_or_none()
+    # Tìm message theo ID và user_id - Beanie syntax
+    from bson import ObjectId
+    
+    # Sử dụng ObjectId nếu message_id là ObjectId string
+    try:
+        message_id_obj = ObjectId(message_id)
+    except:
+        message_id_obj = message_id
+    
+    # Tìm message theo ID trước
+    message = await ChatMessage.find_one(ChatMessage.id == message_id_obj)
+    
+    # Kiểm tra xem message có thuộc về user này không
+    if not message or message.user_id != str(current_user.id):
+        raise HTTPException(status_code=404, detail="Message not found")
     
     if not message:
         raise HTTPException(status_code=404, detail="Message not found")
     
-    await db.delete(message)
-    await db.commit()
+    await message.delete()
     
     return None
 
@@ -166,17 +241,10 @@ async def delete_chat_message(
 )
 async def get_message_count(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
 ):
     """
     Đếm tổng số tin nhắn của user
     """
-    from sqlalchemy import func
-    
-    query = select(func.count(ChatMessage.id)).where(
-        ChatMessage.user_id == current_user.id
-    )
-    result = await db.execute(query)
-    count = result.scalar()
+    count = await ChatMessage.find(ChatMessage.user_id == str(current_user.id)).count()
     
     return {"count": count}

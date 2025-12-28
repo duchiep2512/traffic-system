@@ -5,6 +5,7 @@ import {
   Route,
   Navigate,
   useNavigate,
+  useLocation,
   NavLink,
 } from "react-router-dom";
 import { ThemeProvider, useTheme } from "next-themes";
@@ -23,6 +24,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { clearAllChatData } from "@/utils/chatStorage";
+import { getToken, removeToken, setUserData, getUserData } from "@/utils/authStorage";
 import LoginPage from "./pages/LoginPage";
 import TrafficDashboard from "@/modules/features/traffic/components/TrafficDashboard";
 import AnalyticsPage from "./pages/AnalyticsPage";
@@ -44,39 +46,55 @@ export default function App() {
 }
 
 function AppContent() {
-  // Auto-setup mock auth in development
-  if (typeof window !== 'undefined' && isDevelopment && LOCAL_CONFIG.MOCK_AUTH) {
-    const tokenKey = "access_token";
-    if (!localStorage.getItem(tokenKey)) {
-      localStorage.setItem(tokenKey, LOCAL_CONFIG.MOCK_TOKEN);
-    }
-  }
+  // Auto-setup mock auth in development - DISABLED để luôn vào trang login trước
+  // if (typeof window !== 'undefined' && isDevelopment && LOCAL_CONFIG.MOCK_AUTH) {
+  //   const tokenKey = "access_token";
+  //   if (!localStorage.getItem(tokenKey)) {
+  //     localStorage.setItem(tokenKey, LOCAL_CONFIG.MOCK_TOKEN);
+  //   }
+  // }
 
   const [showRegister, setShowRegister] = useState(false);
   const [authed, setAuthed] = useState(() => {
-    const token = localStorage.getItem("access_token");
-    if (token && token.length < 10) {
-      localStorage.removeItem("access_token");
+    const token = getToken();
+    // Validate token: must exist and be valid length (JWT tokens are usually > 10 chars)
+    if (!token || token.length < 10) {
+      if (token) {
+        removeToken();
+      }
       return false;
     }
-    return !!token;
+    // Additional validation: check if token is not a mock token
+    if (token === LOCAL_CONFIG.MOCK_TOKEN && !isDevelopment) {
+      removeToken();
+      return false;
+    }
+    return true;
   });
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [username, setUsername] = useState<string>(() => {
+    // Try to get username from sessionStorage first
+    const userData = getUserData();
+    return userData?.username || "";
+  });
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { theme, setTheme } = useTheme();
   const hideDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
+  const isLoginPage = location.pathname === "/login" || location.pathname === "/";
 
   const handleLoginSuccess = () => setAuthed(true);
   const handleRegisterSuccess = () => setShowRegister(false);
   const handleLogout = () => {
     // Clear authentication
-    localStorage.removeItem("access_token");
+    removeToken();
     // Clear chat data when user logs out
     clearAllChatData();
     setAuthed(false);
     setIsAdmin(false);
+    setUsername("");
     setShowUserDropdown(false);
     navigate("/login", { replace: true });
   };
@@ -98,17 +116,20 @@ function AppContent() {
     };
   }, [showUserDropdown]);
 
-  // Fetch current user to determine admin role
+  // Fetch current user to determine admin role and get username
   useEffect(() => {
     const fetchMe = async () => {
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:117',message:'fetchMe called',data:{authed,hasToken:!!getToken()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       try {
-        if (!authed) {
+        const token = getToken();
+        if (!token || !authed) {
           setIsAdmin(false);
-          return;
-        }
-        const token = localStorage.getItem("access_token");
-        if (!token) {
-          setIsAdmin(false);
+          setUsername("");
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:125',message:'No token or not authed',data:{authed,hasToken:!!token},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+          // #endregion
           return;
         }
         const res = await fetch(`${authConfig.ME_URL}`, {
@@ -117,27 +138,69 @@ function AppContent() {
         });
         if (!res.ok) {
           setIsAdmin(false);
+          setUsername("");
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:134',message:'API /auth/me failed',data:{status:res.status,statusText:res.statusText},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+          // #endregion
           return;
         }
         const data = await res.json();
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:139',message:'API /auth/me response',data:{hasUsername:!!data?.username,username:data?.username,hasEmail:!!data?.email,email:data?.email,allKeys:Object.keys(data||{})},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         setIsAdmin(data?.role_id === 0);
-      } catch {
+        // Set username - use username field, or fallback to email
+        const fetchedUsername = data?.username || data?.email || "";
+        setUsername(fetchedUsername);
+        // Save user data to sessionStorage so other components can access it
+        setUserData({
+          username: data?.username || "",
+          email: data?.email || "",
+          phone_number: data?.phone_number || "",
+          role_id: data?.role_id || 1,
+          id: data?.id || ""
+        });
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:147',message:'Username set',data:{fetchedUsername,currentUsername:fetchedUsername,willDisplay:fetchedUsername||'...'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+      } catch (error) {
         setIsAdmin(false);
+        setUsername("");
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:152',message:'fetchMe error',data:{error:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
       }
     };
     fetchMe();
   }, [authed]);
+
+  // Listen for user data updates from other components (like UserProfileForm)
+  useEffect(() => {
+    const handleUserDataUpdate = () => {
+      const userData = getUserData();
+      if (userData?.username) {
+        setUsername(userData.username);
+        setIsAdmin(userData.role_id === 0);
+      }
+    };
+    
+    // Check on mount
+    handleUserDataUpdate();
+    
+    // Listen for custom event when user data is updated
+    window.addEventListener('userDataUpdated', handleUserDataUpdate);
+    
+    return () => {
+      window.removeEventListener('userDataUpdated', handleUserDataUpdate);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 via-gray-100 to-zinc-100 dark:from-gray-900 dark:via-slate-900 dark:to-blue-900">
       {/* Banner */}
       <div className="w-full flex flex-wrap items-center justify-between px-3 sm:px-6 py-3 bg-white/90 dark:bg-gray-900/90 shadow-lg border-b border-gray-300 dark:border-gray-800 backdrop-blur-xl sticky top-0 z-50">
         <div className="flex items-center min-w-0 gap-3">
-          <a
-            href="/home"
-            className="flex items-center flex-shrink-0"
-            title="Trang chủ"
-          >
+          <div className="flex items-center flex-shrink-0">
             <div className="relative w-12 h-12">
               {/* Animated background gradient */}
               <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 animate-gradient-x"></div>
@@ -155,7 +218,7 @@ function AppContent() {
                 </div>
               </div>
             </div>
-          </a>
+          </div>
           <div className="flex flex-col justify-center min-w-0">
             <h1 className="text-base sm:text-xl lg:text-2xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent truncate leading-tight">
               Smart Traffic System
@@ -165,50 +228,52 @@ function AppContent() {
             </p>
           </div>
         </div>
-        <div className="flex-1 flex flex-col items-center justify-center max-w-md mx-auto">
-          {/* Centered Navigation Tabs */}
-          <nav className="flex items-center gap-1 sm:gap-3">
-            <NavLink
-              to="/home"
-              className={({ isActive }) =>
-                `flex items-center gap-1 sm:gap-2 px-3 sm:px-5 py-2 rounded-xl font-bold transition-all text-sm focus:outline-none ${
-                  isActive
-                    ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-400/40"
-                    : "bg-gradient-to-r from-blue-50 to-cyan-50 dark:bg-gray-800 text-blue-800 dark:text-gray-600 hover:from-blue-100 hover:to-cyan-100 dark:hover:bg-blue-900/50"
-                }`
-              }
-            >
-              <Home className="h-5 w-5 sm:h-6 sm:w-6" />
-              <span className="hidden sm:inline">Trang Chủ</span>
-            </NavLink>
-            <NavLink
-              to="/analys"
-              className={({ isActive }) =>
-                `flex items-center gap-1 sm:gap-2 px-3 sm:px-5 py-2 rounded-xl font-bold transition-all text-sm focus:outline-none ${
-                  isActive
-                    ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-400/40"
-                    : "bg-gradient-to-r from-purple-50 to-pink-50 dark:bg-gray-800 text-purple-800 dark:text-gray-600 hover:from-purple-100 hover:to-pink-100 dark:hover:bg-purple-900/50"
-                }`
-              }
-            >
-              <BarChart3 className="h-5 w-5 sm:h-6 sm:w-6" />
-              <span className="hidden sm:inline">Phân Tích</span>
-            </NavLink>
-            <NavLink
-              to="/chat"
-              className={({ isActive }) =>
-                `flex items-center gap-1 sm:gap-2 px-3 sm:px-5 py-2 rounded-xl font-bold transition-all text-sm focus:outline-none ${
-                  isActive
-                    ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-lg shadow-indigo-400/40"
-                    : "bg-gradient-to-r from-indigo-50 to-violet-50 dark:bg-gray-800 text-indigo-800 dark:text-gray-600 hover:from-indigo-100 hover:to-violet-100 dark:hover:bg-indigo-900/50"
-                }`
-              }
-            >
-              <Bot className="h-5 w-5 sm:h-6 sm:w-6" />
-              <span className="hidden sm:inline">Trợ Lý AI</span>
-            </NavLink>
-          </nav>
-        </div>
+        {!isLoginPage && (
+          <div className="flex-1 flex flex-col items-center justify-center max-w-md mx-auto">
+            {/* Centered Navigation Tabs */}
+            <nav className="flex items-center gap-1 sm:gap-3">
+              <NavLink
+                to="/home"
+                className={({ isActive }) =>
+                  `flex items-center gap-1 sm:gap-2 px-3 sm:px-5 py-2 rounded-xl font-bold transition-all text-sm focus:outline-none ${
+                    isActive
+                      ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-400/40"
+                      : "bg-gradient-to-r from-blue-50 to-cyan-50 dark:bg-gray-800 text-blue-800 dark:text-gray-600 hover:from-blue-100 hover:to-cyan-100 dark:hover:bg-blue-900/50"
+                  }`
+                }
+              >
+                <Home className="h-5 w-5 sm:h-6 sm:w-6" />
+                <span className="hidden sm:inline">Trang Chủ</span>
+              </NavLink>
+              <NavLink
+                to="/analys"
+                className={({ isActive }) =>
+                  `flex items-center gap-1 sm:gap-2 px-3 sm:px-5 py-2 rounded-xl font-bold transition-all text-sm focus:outline-none ${
+                    isActive
+                      ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-400/40"
+                      : "bg-gradient-to-r from-purple-50 to-pink-50 dark:bg-gray-800 text-purple-800 dark:text-gray-600 hover:from-purple-100 hover:to-pink-100 dark:hover:bg-purple-900/50"
+                  }`
+                }
+              >
+                <BarChart3 className="h-5 w-5 sm:h-6 sm:w-6" />
+                <span className="hidden sm:inline">Phân Tích</span>
+              </NavLink>
+              <NavLink
+                to="/chat"
+                className={({ isActive }) =>
+                  `flex items-center gap-1 sm:gap-2 px-3 sm:px-5 py-2 rounded-xl font-bold transition-all text-sm focus:outline-none ${
+                    isActive
+                      ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-lg shadow-indigo-400/40"
+                      : "bg-gradient-to-r from-indigo-50 to-violet-50 dark:bg-gray-800 text-indigo-800 dark:text-gray-600 hover:from-indigo-100 hover:to-violet-100 dark:hover:bg-indigo-900/50"
+                  }`
+                }
+              >
+                <Bot className="h-5 w-5 sm:h-6 sm:w-6" />
+                <span className="hidden sm:inline">Trợ Lý AI</span>
+              </NavLink>
+            </nav>
+          </div>
+        )}
         <div
           className="flex items-center space-x-2 sm:space-x-3 relative flex-shrink-0"
           ref={dropdownRef}
@@ -233,7 +298,7 @@ function AppContent() {
               >
                 <UserCircle className="h-6 w-6 sm:h-7 sm:w-7 text-gray-700 dark:text-blue-400" />
                 <span className="font-bold text-gray-800 dark:text-gray-200 hidden sm:inline text-sm">
-                  Tài khoản
+                  {username || (authed ? "..." : "Tài khoản")}
                 </span>
               </button>
               <div
@@ -322,6 +387,10 @@ function AppContent() {
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/admin" element={<AdminPage />} />
           </Route>
+          <Route
+            path="/"
+            element={<Navigate to={authed ? "/home" : "/login"} replace />}
+          />
           <Route
             path="*"
             element={<Navigate to={authed ? "/home" : "/login"} replace />}

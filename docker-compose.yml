@@ -2,18 +2,32 @@ version: "3.9"
 
 services:
   database:
-    image: postgres:16
+    image: mongo:7
     container_name: database
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: odoo
-      POSTGRES_DB: transportation_system
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+      MONGO_INITDB_DATABASE: transportation_system
     ports:
-      - "5433:5432"
+      - "27017:27017"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - mongodata:/data/db
     networks:
       - mynet
+  # PostgreSQL (có thể xóa nếu không cần)
+  # postgres:
+  #   image: postgres:16
+  #   container_name: postgres
+  #   environment:
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: odoo
+  #     POSTGRES_DB: transportation_system
+  #   ports:
+  #     - "5433:5432"
+  #   volumes:
+  #     - pgdata:/var/lib/postgresql/data
+  #   networks:
+  #     - mynet
   backend:
     build:
       context: ./backend
@@ -41,6 +55,10 @@ services:
       - backend
     networks:
       - mynet
+
+volumes:
+  mongodata:
+  # pgdata:  # PostgreSQL volume (có thể xóa nếu không cần)
 
 networks:
   mynet:

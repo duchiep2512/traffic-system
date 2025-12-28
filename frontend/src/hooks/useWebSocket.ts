@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { WS_URL, LOCAL_CONFIG, isDevelopment } from "../config";
+import { getToken } from "@/utils/authStorage";
 
 // Helper function để lấy token (mock hoặc thật)
 const getAuthToken = (): string | null => {
-  if (isDevelopment) {
-    // Local dev: dùng mock token hoặc lấy từ localStorage
-    return localStorage.getItem("access_token") || LOCAL_CONFIG.MOCK_TOKEN;
+  const token = getToken();
+  if (isDevelopment && !token) {
+    // Local dev: dùng mock token nếu không có token
+    return LOCAL_CONFIG.MOCK_TOKEN;
   }
-  // Production: lấy từ localStorage
-  return localStorage.getItem("access_token");
+  return token;
 };
 
 interface WebSocketHookOptions {

@@ -8,10 +8,15 @@ APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 class SettingServer:
     PROJECT_NAME = "FastAPI CRUD with JWT"
+    # MongoDB connection string
+    # Default: không dùng authentication (đơn giản hơn cho local)
+    # Nếu có authentication: mongodb://admin:admin123@localhost:27017/transportation_system?authSource=admin
+    MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017/transportation_system")
+    # PostgreSQL (deprecated, có thể xóa)
     DATABASE_URL = os.getenv("DATABASE_URL")
     JWT_SECRET = os.getenv("JWT_SECRET_KEY")
     JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")
-    ACCESS_TOKEN_EXPIRE_DAYS = int(os.getenv("ACCESS_TOKEN_EXPIRE_DAYS"))
+    ACCESS_TOKEN_EXPIRE_DAYS = int(os.getenv("ACCESS_TOKEN_EXPIRE_DAYS", "7"))
 
 class SettingMetricTransport:
     REGIONS = [

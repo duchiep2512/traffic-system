@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from app.api import v1
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import RedirectResponse
-from app.db.base import create_tables
+from app.db.base import init_database, close_database
 from app.core.config import settings_network
 
 os.environ["OPENCV_VIDEOIO_PRIORITY_MSMF"] = "0"
@@ -58,20 +58,22 @@ signal.signal(signal.SIGTERM, signal_handler)
 
 @app.on_event("startup")
 async def startup_event():
-    """Tạo bảng database khi khởi động"""
-    print("Creating database tables...")
+    """Khởi tạo MongoDB connection khi khởi động"""
+    print("Initializing MongoDB connection...")
     try:
-        await create_tables()
-        print("Tạo xong bảng database.")
+        await init_database()
+        print("✅ MongoDB đã sẵn sàng.")
     except Exception as e:
-        print(f"Lỗi tạo bảng database: {e}")
-        raise e
+        print(f"❌ Lỗi khởi tạo MongoDB: {e}")
+        # Không raise để app vẫn có thể chạy ở local mode
+        print("⚠️ App sẽ chạy ở chế độ không có database")
 
 @app.on_event("shutdown")
-def shutdown():
+async def shutdown():
     print("Tắt mọi thứ...")
     if v1.state.analyzer:
         v1.state.analyzer.cleanup_processes()
+    await close_database()
 
 @app.get(
     path='/',

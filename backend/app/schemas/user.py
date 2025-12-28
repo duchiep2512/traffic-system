@@ -21,7 +21,7 @@ class UserUpdate(BaseUser):
     password: Optional[str] = None
 
 class UserOut(BaseUser):
-    id: int
+    id: str  # MongoDB ObjectId is serialized as string
     role_id: int
 
     class Config:

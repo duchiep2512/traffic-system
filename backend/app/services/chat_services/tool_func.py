@@ -45,28 +45,148 @@ def get_info_road(road_name: Annotated[str, "Tên tuyến đường"]) -> str:
     Trả về chuỗi JSON chứa số lượng xe, tốc độ, v.v.
     """
     import logging
+    import os
+    import time
     logger = logging.getLogger(__name__)
     
-    # Debug: Kiểm tra state.analyzer
-    logger.debug(f"get_info_road called for: {road_name}")
+    # region agent log
+    LOG_PATH = r"d:\seminar\.cursor\debug.log"
+    try:
+        payload = {
+            "sessionId": "debug-session",
+            "runId": "run1",
+            "hypothesisId": "H1",
+            "location": "tool_func.get_info_road",
+            "message": "tool_called",
+            "data": {
+                "road_name": road_name,
+                "road_name_repr": repr(road_name),
+                "road_name_len": len(road_name),
+            },
+            "timestamp": int(time.time() * 1000),
+        }
+        os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
+        with open(LOG_PATH, "a", encoding="utf-8") as _f:
+            _f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+    # endregion agent log
+    
     analyzer = v1.state.analyzer
-    logger.debug(f"analyzer is None: {analyzer is None}")
-    if analyzer is not None:
-        logger.debug(f"analyzer.names: {analyzer.names}")
-        logger.debug(f"analyzer type: {type(analyzer)}")
-        logger.debug(f"analyzer id: {id(analyzer)}")
+    
+    # region agent log
+    try:
+        # So sánh tên đường
+        name_matches = []
+        if analyzer and analyzer.names:
+            for name in analyzer.names:
+                match_info = {
+                    "name": name,
+                    "exact_match": name == road_name,
+                    "case_insensitive_match": name.lower() == road_name.lower(),
+                    "name_repr": repr(name),
+                    "name_len": len(name),
+                }
+                name_matches.append(match_info)
+        
+        payload = {
+            "sessionId": "debug-session",
+            "runId": "run1",
+            "hypothesisId": "H2",
+            "location": "tool_func.get_info_road",
+            "message": "analyzer_check",
+            "data": {
+                "analyzer_is_none": analyzer is None,
+                "analyzer_names": analyzer.names if analyzer else None,
+                "analyzer_type": str(type(analyzer)) if analyzer else None,
+                "name_matches": name_matches,
+                "road_name_in_names": road_name in (analyzer.names if analyzer else []),
+            },
+            "timestamp": int(time.time() * 1000),
+        }
+        with open(LOG_PATH, "a", encoding="utf-8") as _f:
+            _f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+    # endregion agent log
     
     if analyzer is None:
         return json.dumps({"error": "Analyzer chưa được khởi tạo"}, ensure_ascii=False)
     
     try:
         data = analyzer.get_info_road(road_name)
-        logger.debug(f"get_info_road data: {data}")
+        
+        # region agent log
+        try:
+            payload = {
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "H3",
+                "location": "tool_func.get_info_road",
+                "message": "analyzer_data",
+                "data": {
+                    "road_name": road_name,
+                    "data": data,
+                    "data_is_empty": not data or data == {},
+                    "data_keys": list(data.keys()) if isinstance(data, dict) else None,
+                },
+                "timestamp": int(time.time() * 1000),
+            }
+            with open(LOG_PATH, "a", encoding="utf-8") as _f:
+                _f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        except Exception:
+            pass
+        # endregion agent log
+        
         if not data:
             return json.dumps({"error": f"Không có dữ liệu cho tuyến đường '{road_name}'"}, ensure_ascii=False)
         
-        return json.dumps(data, ensure_ascii=False)
+        result = json.dumps(data, ensure_ascii=False)
+        
+        # region agent log
+        try:
+            payload = {
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "H4",
+                "location": "tool_func.get_info_road",
+                "message": "tool_result",
+                "data": {
+                    "road_name": road_name,
+                    "result_length": len(result),
+                    "result_preview": result[:200] if len(result) > 200 else result,
+                },
+                "timestamp": int(time.time() * 1000),
+            }
+            with open(LOG_PATH, "a", encoding="utf-8") as _f:
+                _f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        except Exception:
+            pass
+        # endregion agent log
+        
+        return result
     except Exception as e:
+        # region agent log
+        try:
+            payload = {
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "H5",
+                "location": "tool_func.get_info_road",
+                "message": "tool_error",
+                "data": {
+                    "road_name": road_name,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+                "timestamp": int(time.time() * 1000),
+            }
+            with open(LOG_PATH, "a", encoding="utf-8") as _f:
+                _f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        except Exception:
+            pass
+        # endregion agent log
+        
         logger.error(f"Error in get_info_road: {e}", exc_info=True)
         return json.dumps({"error": f"Lỗi khi lấy dữ liệu: {str(e)}"}, ensure_ascii=False)
     

@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, memo, useCallback } from "react";
 import {
-  loadChatHistory,
   saveChatHistory,
   clearChatHistory,
   loadChatDraft,
@@ -8,6 +7,8 @@ import {
   clearChatDraft,
 } from "@/utils/chatStorage";
 import { apiConfig, authConfig, endpoints } from "@/config";
+import { saveMessageToServer, fetchChatHistory } from "@/services/chatHistoryService";
+import { getToken } from "@/utils/authStorage";
 // Helper: check if an URL points to the same API origin (handles localhost vs 127.0.0.1)
 function isSameApiOrigin(url: string): boolean {
   try {
@@ -30,7 +31,7 @@ const ChatImageFromUrl = ({ url }: { url: string }) => {
       try {
         const token =
           typeof window !== "undefined"
-            ? localStorage.getItem(authConfig.TOKEN_KEY)
+            ? getToken()
             : null;
         const isLocalApi = isSameApiOrigin(url);
         const headers: HeadersInit = {};
@@ -331,7 +332,7 @@ function addTokenToImageUrl(url: string): string {
 
   // Only add token if it's a local API URL
   if (url.includes("localhost:8000") || url.includes("127.0.0.1:8000")) {
-    const token = localStorage.getItem(authConfig.TOKEN_KEY);
+    const token = getToken();
     if (token) {
       const separator = url.includes("?") ? "&" : "?";
       return `${url}${separator}token=${encodeURIComponent(token)}`;
@@ -353,8 +354,8 @@ function processImageUrlsInText(text: string): string {
 }
 
 const ChatInterface = ({ trafficData }: ChatInterfaceProps) => {
-  // Load chat history from localStorage using helper functions
-  const [messages, setMessages] = useState<Message[]>(() => loadChatHistory());
+  // Initialize with empty messages - will load from server on mount
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState(() => loadChatDraft());
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -376,42 +377,147 @@ const ChatInterface = ({ trafficData }: ChatInterfaceProps) => {
 
   // Track current token to reload messages when user switches accounts
   const [currentToken, setCurrentToken] = useState(() =>
-    localStorage.getItem(authConfig.TOKEN_KEY)
+    getToken()
   );
+
+  // Function to load messages from server or localStorage
+  const loadMessagesForUser = useCallback(async (token: string | null) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:395',message:'loadMessagesForUser called',data:{tokenPrefix:token?.substring(0,20)||'null',hasToken:!!token},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+    
+    if (token) {
+      try {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:400',message:'Fetching chat history from server',data:{tokenPrefix:token.substring(0,20)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
+        const serverMessages = await fetchChatHistory();
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:403',message:'Received chat history from server',data:{messageCount:serverMessages?.length||0,firstMessageId:serverMessages?.[0]?.id,lastMessageId:serverMessages?.[serverMessages.length-1]?.id,firstMessageText:serverMessages?.[0]?.text?.substring(0,30)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
+        if (serverMessages && serverMessages.length > 0) {
+          console.log("[ChatInterface] Loaded", serverMessages.length, "messages from server");
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:408',message:'Setting messages from server',data:{messageCount:serverMessages.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+          // #endregion
+          setMessages(serverMessages);
+          // Save to localStorage for offline access
+          saveChatHistory(serverMessages);
+        } else {
+          // No server messages, clear local storage for this user and start fresh
+          console.log("[ChatInterface] No server messages, starting fresh");
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:415',message:'No server messages, clearing and starting fresh',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+          // #endregion
+          clearChatHistory();
+          setMessages([]);
+        }
+      } catch (error) {
+        console.error("[ChatInterface] Error loading from server, using localStorage:", error);
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:420',message:'Error loading from server',data:{error:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
+        // On error, clear and start fresh (don't use old localStorage data)
+        clearChatHistory();
+        setMessages([]);
+      }
+    } else {
+      // No token, clear messages
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:428',message:'No token, clearing messages',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+      setMessages([]);
+      clearChatHistory();
+    }
+  }, []);
+
+  // Load messages from server on initial mount
+  useEffect(() => {
+    const token = getToken();
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:434',message:'Initial mount - loading messages',data:{tokenPrefix:token?.substring(0,20)||'null',hasToken:!!token},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+    if (token) {
+      loadMessagesForUser(token);
+    } else {
+      // No token, show welcome message
+      setMessages([{
+        id: "1",
+        text: "Xin chào! Tôi là trợ lý AI của hệ thống giao thông thông minh. Bạn có thể hỏi tôi về tình trạng giao thông hiện tại, thống kê xe cộ, hoặc bất kỳ thông tin nào về các tuyến đường đang được giám sát. Tôi có thể giúp gì cho bạn?",
+        user: false,
+        time: new Date().toLocaleTimeString("vi-VN"),
+      }]);
+    }
+  }, []); // Only run on mount
 
   // Reload messages when token changes (user logged in/out or switched accounts)
   useEffect(() => {
-    const token = localStorage.getItem(authConfig.TOKEN_KEY);
+    const token = getToken();
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:451',message:'Token check in useEffect',data:{tokenExists:!!token,tokenFull:token||'null',currentTokenFull:currentToken||'null',tokensMatch:token===currentToken},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
 
     if (token !== currentToken) {
       console.log("[ChatInterface] Token changed, reloading messages");
       console.log("  Old token:", currentToken?.substring(0, 10));
       console.log("  New token:", token?.substring(0, 10));
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:428',message:'Token changed detected',data:{oldTokenPrefix:currentToken?.substring(0,20),newTokenPrefix:token?.substring(0,20)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
 
+      // Clear messages immediately when token changes to prevent showing old user's data
+      setMessages([]);
+      clearChatHistory();
+      
       setCurrentToken(token);
-      const newMessages = loadChatHistory();
-      setMessages(newMessages);
+      loadMessagesForUser(token);
       setInput(loadChatDraft());
-
-      console.log(
-        "[ChatInterface] Loaded",
-        newMessages.length,
-        "messages for new user"
-      );
     }
-  }, [currentToken]);
+  }, [currentToken, loadMessagesForUser]);
 
-  // Check token periodically in case user logs in/out in another tab
+  // Listen for token change events (from login/logout)
+  useEffect(() => {
+    const handleTokenChange = () => {
+      const token = getToken();
+      console.log("[ChatInterface] Token change event received");
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:444',message:'Token change event received',data:{tokenPrefix:token?.substring(0,20),currentTokenPrefix:currentToken?.substring(0,20),tokensMatch:token===currentToken},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+      if (token !== currentToken) {
+        // Clear messages immediately when token changes
+        setMessages([]);
+        clearChatHistory();
+        setCurrentToken(token);
+        loadMessagesForUser(token);
+        setInput(loadChatDraft());
+      }
+    };
+
+    window.addEventListener('tokenChanged', handleTokenChange);
+    return () => window.removeEventListener('tokenChanged', handleTokenChange);
+  }, [currentToken, loadMessagesForUser]);
+
+  // Check token periodically in case user logs in/out in another tab or component
   useEffect(() => {
     const interval = setInterval(() => {
-      const token = localStorage.getItem(authConfig.TOKEN_KEY);
+      const token = getToken();
       if (token !== currentToken) {
+        console.log("[ChatInterface] Token changed (polling), reloading messages");
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:463',message:'Token changed (polling)',data:{oldTokenPrefix:currentToken?.substring(0,20),newTokenPrefix:token?.substring(0,20)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        // Clear messages immediately when token changes
+        setMessages([]);
+        clearChatHistory();
         setCurrentToken(token);
+        loadMessagesForUser(token);
+        setInput(loadChatDraft());
       }
     }, 1000); // Check every second
 
     return () => clearInterval(interval);
-  }, [currentToken]);
+  }, [currentToken, loadMessagesForUser]);
+
 
   // Save chat history to localStorage whenever messages change
   useEffect(() => {
@@ -519,6 +625,25 @@ const ChatInterface = ({ trafficData }: ChatInterfaceProps) => {
       time: new Date().toLocaleTimeString("vi-VN"),
     };
     setMessages((prev) => [...prev, userMsg]);
+    
+    // Save user message to server (MongoDB)
+    const token = getToken();
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:548',message:'Saving user message to server',data:{message:userMessage.substring(0,50),hasToken:!!token,tokenPrefix:token?.substring(0,20)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
+    saveMessageToServer(userMessage, true).then((success) => {
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:551',message:'User message save result',data:{success,message:userMessage.substring(0,50)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
+      if (!success) {
+        console.error("Failed to save user message to server");
+      }
+    }).catch((error) => {
+      console.error("Failed to save user message to server:", error);
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:556',message:'User message save error',data:{error:String(error),message:userMessage.substring(0,50)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
+    });
 
     // Scroll xuống sau khi thêm tin nhắn người dùng
     scrollToBottom();
@@ -631,19 +756,41 @@ const ChatInterface = ({ trafficData }: ChatInterfaceProps) => {
         hasImages: imageUrls.length > 0,
       });
 
+      // Create AI message
+      const aiMessage: Message = {
+        id: generateMessageId(),
+        text: processedText,
+        user: false,
+        time: new Date().toLocaleTimeString("vi-VN"),
+        image: imageUrls.length > 0 ? imageUrls : undefined,
+      };
+      
+      // Save AI response to server (MongoDB)
+      const token = getToken();
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:671',message:'Saving AI message to server',data:{message:processedText.substring(0,50),hasToken:!!token,tokenPrefix:token?.substring(0,20),hasImages:imageUrls.length>0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
+      saveMessageToServer(processedText, false, imageUrls.length > 0 ? imageUrls : undefined).then((success) => {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:674',message:'AI message save result',data:{success,message:processedText.substring(0,50)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
+        if (!success) {
+          console.error("Failed to save AI message to server");
+        }
+      }).catch((error) => {
+        console.error("Failed to save AI message to server:", error);
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:679',message:'AI message save error',data:{error:String(error),message:processedText.substring(0,50)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
+      });
+      
       setMessages((prev) => {
         // Remove typing indicator
         const filtered = prev.filter((msg) => msg.id !== "typing");
         // Add AI response
         return [
           ...filtered,
-          {
-            id: generateMessageId(),
-            text: processedText,
-            user: false,
-            time: new Date().toLocaleTimeString("vi-VN"),
-            image: imageUrls,
-          },
+          aiMessage,
         ];
       });
 

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { authConfig, userConfig } from "@/config";
+import { getToken, setUserData } from "@/utils/authStorage";
 
 function UserProfile() {
   // Profile information states
@@ -41,7 +42,7 @@ function UserProfile() {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const token = localStorage.getItem(authConfig.TOKEN_KEY);
+        const token = getToken();
         if (!token) {
           toast.error("Vui lòng đăng nhập");
           return;
@@ -54,6 +55,16 @@ function UserProfile() {
           setUsername(data.username || "");
           setEmail(data.email || "");
           setPhone(data.phone_number || "");
+          // Save user data to sessionStorage so App.tsx can access it
+          setUserData({
+            username: data.username || "",
+            email: data.email || "",
+            phone_number: data.phone_number || "",
+            role_id: data.role_id || 1,
+            id: data.id || ""
+          });
+          // Dispatch event to notify App.tsx
+          window.dispatchEvent(new Event('userDataUpdated'));
         } else {
           toast.error("Không thể tải thông tin người dùng");
         }
@@ -70,7 +81,7 @@ function UserProfile() {
     setError("");
     setSuccess(false);
     try {
-      const token = localStorage.getItem(authConfig.TOKEN_KEY);
+      const token = getToken();
       const res = await fetch(userConfig.PROFILE_URL, {
         method: "PUT",
         headers: {
@@ -110,7 +121,7 @@ function UserProfile() {
     setError("");
     setSuccess(false);
     try {
-      const token = localStorage.getItem(authConfig.TOKEN_KEY);
+      const token = getToken();
       const res = await fetch(userConfig.PASSWORD_URL, {
         method: "PUT",
         headers: {
