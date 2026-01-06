@@ -62,7 +62,7 @@ class RegionDrawer:
 
 if __name__ == "__main__":
     # Sử dụng
-    video_path = "./video_test/Ngã Tư Sở.mp4"
+    video_path = "../video_test/Ngã Tư Sở.mp4"
     
     drawer = RegionDrawer(video_path)
     region = drawer.draw_region()

@@ -76,7 +76,11 @@ function AppContent() {
   const [username, setUsername] = useState<string>(() => {
     // Try to get username from sessionStorage first
     const userData = getUserData();
-    return userData?.username || "";
+    const initialUsername = userData?.username || "";
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:username_init',message:'Username state initialized',data:{initialUsername,hasUserData:!!userData,userDataKeys:userData?Object.keys(userData):[]},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
+    // #endregion
+    return initialUsername;
   });
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { theme, setTheme } = useTheme();
@@ -85,7 +89,12 @@ function AppContent() {
   const location = useLocation();
   const isLoginPage = location.pathname === "/login" || location.pathname === "/";
 
-  const handleLoginSuccess = () => setAuthed(true);
+  const handleLoginSuccess = () => {
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:handleLoginSuccess',message:'Login success called',data:{hasToken:!!getToken(),pathname:location.pathname},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
+    setAuthed(true);
+  };
   const handleRegisterSuccess = () => setShowRegister(false);
   const handleLogout = () => {
     // Clear authentication
@@ -118,9 +127,12 @@ function AppContent() {
 
   // Fetch current user to determine admin role and get username
   useEffect(() => {
-    const fetchMe = async () => {
+    const fetchMe = async (retryCount = 0) => {
+      const maxRetries = 3;
+      const retryDelay = 1000; // 1 second
+      
       // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:117',message:'fetchMe called',data:{authed,hasToken:!!getToken()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:fetchMe',message:'fetchMe called',data:{authed,hasToken:!!getToken(),retryCount,meUrl:authConfig.ME_URL},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
       // #endregion
       try {
         const token = getToken();
@@ -128,29 +140,51 @@ function AppContent() {
           setIsAdmin(false);
           setUsername("");
           // #region agent log
-          fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:125',message:'No token or not authed',data:{authed,hasToken:!!token},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+          fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:fetchMe',message:'No token or not authed',data:{authed,hasToken:!!token},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
           // #endregion
           return;
         }
-        const res = await fetch(`${authConfig.ME_URL}`, {
+        
+        const meUrl = authConfig.ME_URL;
+        // #region agent log
+        fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:fetchMe',message:'Before fetch',data:{meUrl,tokenPrefix:token.substring(0,20)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        
+        const res = await fetch(meUrl, {
           headers: { Authorization: `Bearer ${token}` },
           credentials: "include",
         });
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:fetchMe',message:'After fetch',data:{status:res.status,statusText:res.statusText,ok:res.ok},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        
         if (!res.ok) {
+          // Retry on 5xx errors or network issues
+          if (retryCount < maxRetries && (res.status >= 500 || res.status === 0)) {
+            // #region agent log
+            fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:fetchMe',message:'Retrying fetchMe',data:{status:res.status,retryCount,nextRetryIn:retryDelay},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            return fetchMe(retryCount + 1);
+          }
           setIsAdmin(false);
           setUsername("");
           // #region agent log
-          fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:134',message:'API /auth/me failed',data:{status:res.status,statusText:res.statusText},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+          fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:fetchMe',message:'API /auth/me failed',data:{status:res.status,statusText:res.statusText,retryCount},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
           // #endregion
           return;
         }
         const data = await res.json();
         // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:139',message:'API /auth/me response',data:{hasUsername:!!data?.username,username:data?.username,hasEmail:!!data?.email,email:data?.email,allKeys:Object.keys(data||{})},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:fetchMe',message:'API /auth/me response',data:{hasUsername:!!data?.username,username:data?.username,hasEmail:!!data?.email,email:data?.email,allKeys:Object.keys(data||{})},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
         // #endregion
         setIsAdmin(data?.role_id === 0);
         // Set username - use username field, or fallback to email
         const fetchedUsername = data?.username || data?.email || "";
+        // #region agent log
+        fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:fetchMe',message:'Before setUsername',data:{fetchedUsername,currentUsername:username,willSetTo:fetchedUsername},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
+        // #endregion
         setUsername(fetchedUsername);
         // Save user data to sessionStorage so other components can access it
         setUserData({
@@ -161,13 +195,26 @@ function AppContent() {
           id: data?.id || ""
         });
         // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:147',message:'Username set',data:{fetchedUsername,currentUsername:fetchedUsername,willDisplay:fetchedUsername||'...'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:fetchMe',message:'After setUsername',data:{fetchedUsername,userDataSaved:true},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
         // #endregion
       } catch (error) {
+        const errorObj = error as Error;
+        // Retry on network errors
+        if (retryCount < maxRetries && (errorObj instanceof TypeError || errorObj instanceof Error)) {
+          // #region agent log
+          fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:fetchMe',message:'Retrying after error',data:{error:String(errorObj),errorType:errorObj.constructor.name,retryCount,nextRetryIn:retryDelay},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+          // #endregion
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          return fetchMe(retryCount + 1);
+        }
         setIsAdmin(false);
-        setUsername("");
+        // Don't clear username if we already have it from sessionStorage
+        const userData = getUserData();
+        if (!userData?.username) {
+          setUsername("");
+        }
         // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:152',message:'fetchMe error',data:{error:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:fetchMe',message:'fetchMe error final',data:{error:String(errorObj),errorType:errorObj.constructor.name,retryCount,hasUserData:!!userData,usernameFromStorage:userData?.username},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
         // #endregion
       }
     };
@@ -178,7 +225,13 @@ function AppContent() {
   useEffect(() => {
     const handleUserDataUpdate = () => {
       const userData = getUserData();
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:handleUserDataUpdate',message:'UserDataUpdated event received',data:{hasUserData:!!userData,username:userData?.username,currentUsername:username},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H4'})}).catch(()=>{});
+      // #endregion
       if (userData?.username) {
+        // #region agent log
+        fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:handleUserDataUpdate',message:'Updating username from event',data:{newUsername:userData.username,oldUsername:username},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H4'})}).catch(()=>{});
+        // #endregion
         setUsername(userData.username);
         setIsAdmin(userData.role_id === 0);
       }
@@ -193,7 +246,7 @@ function AppContent() {
     return () => {
       window.removeEventListener('userDataUpdated', handleUserDataUpdate);
     };
-  }, []);
+  }, [username]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 via-gray-100 to-zinc-100 dark:from-gray-900 dark:via-slate-900 dark:to-blue-900">
@@ -298,7 +351,13 @@ function AppContent() {
               >
                 <UserCircle className="h-6 w-6 sm:h-7 sm:w-7 text-gray-700 dark:text-blue-400" />
                 <span className="font-bold text-gray-800 dark:text-gray-200 hidden sm:inline text-sm">
-                  {username || (authed ? "..." : "Tài khoản")}
+                  {(() => {
+                    const displayText = username || (authed ? "..." : "Tài khoản");
+                    // #region agent log
+                    fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:render_username',message:'Rendering username',data:{username,authed,displayText},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H3'})}).catch(()=>{});
+                    // #endregion
+                    return displayText;
+                  })()}
                 </span>
               </button>
               <div

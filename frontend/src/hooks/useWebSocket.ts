@@ -238,21 +238,43 @@ export const useWebSocket = (
   }, []);
 
   const hasInitialized = useRef(false);
+  const lastAuthTokenRef = useRef<string | null | undefined>(authToken);
 
-  // Khởi tạo WebSocket một lần duy nhất khi component mount
+  // Khởi tạo WebSocket và reconnect khi token thay đổi
   useEffect(() => {
-    // Chỉ chạy một lần khi component mount
-    if (hasInitialized.current) return;
-    hasInitialized.current = true;
     mountedRef.current = true;
 
-    if (url) {
-      connect();
+    // Nếu token thay đổi và đã có connection, disconnect và reconnect
+    if (hasInitialized.current && lastAuthTokenRef.current !== authToken) {
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useWebSocket.ts:tokenChange',message:'Token changed, reconnecting',data:{hadToken:!!lastAuthTokenRef.current,hasToken:!!authToken},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
+      intentionalCloseRef.current = true;
+      disconnect();
+      // Reset reconnect count when token changes
+      setReconnectCount(0);
+      lastAuthTokenRef.current = authToken;
+      // Small delay before reconnecting with new token
+      setTimeout(() => {
+        if (mountedRef.current && url) {
+          connect();
+        }
+      }, 100);
+      return;
+    }
+
+    // Chỉ khởi tạo một lần khi component mount
+    if (!hasInitialized.current) {
+      hasInitialized.current = true;
+      lastAuthTokenRef.current = authToken;
+
+      if (url) {
+        connect();
+      }
     }
 
     return () => {
       mountedRef.current = false;
-      hasInitialized.current = false;
 
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
@@ -271,8 +293,9 @@ export const useWebSocket = (
       setIsConnected(false);
       setError(null);
       setReconnectCount(0);
+      hasInitialized.current = false;
     };
-  }, [url, connect, disconnect]);
+  }, [url, connect, disconnect, authToken]);
 
   return {
     data,
@@ -391,10 +414,18 @@ export const useMultipleTrafficInfo = (roadNames: string[]) => {
       const fullUrl = token
         ? `${wsUrl}${separator}token=${encodeURIComponent(token)}`
         : wsUrl;
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useWebSocket.ts:useMultipleTrafficInfo',message:'Creating traffic WS',data:{road,hasToken:!!token,wsUrl:fullUrl},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       const ws = new WebSocket(fullUrl);
       currentSockets[road] = ws;
 
-      ws.onopen = () => setConnections((prev) => ({ ...prev, [road]: true }));
+      ws.onopen = () => {
+        // #region agent log
+        fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useWebSocket.ts:useMultipleTrafficInfo',message:'Traffic WS opened',data:{road},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
+        setConnections((prev) => ({ ...prev, [road]: true }));
+      };
       ws.onmessage = (event) => {
         try {
           if (lastMessageRef.current[road] === event.data) return;
@@ -419,8 +450,12 @@ export const useMultipleTrafficInfo = (roadNames: string[]) => {
           console.error("Error processing message:", error);
         }
       };
-      const markClosed = () =>
+      const markClosed = () => {
+        // #region agent log
+        fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useWebSocket.ts:useMultipleTrafficInfo',message:'Traffic WS closed/error',data:{road,readyState:ws.readyState},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
         setConnections((prev) => ({ ...prev, [road]: false }));
+      };
       ws.onclose = markClosed;
       ws.onerror = markClosed;
     });

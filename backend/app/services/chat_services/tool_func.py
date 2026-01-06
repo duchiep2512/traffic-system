@@ -5,7 +5,7 @@ from typing import Annotated
 from langchain_core.tools import tool
 
 from app.api import v1
-from app.core.config import settings_network
+from app.core.config import settings_network, LOG_PATH
 
 logger = logging.getLogger(__name__)
 BASE_URL = f"{settings_network.BASE_URL_API}/api/v1"
@@ -50,7 +50,7 @@ def get_info_road(road_name: Annotated[str, "Tên tuyến đường"]) -> str:
     logger = logging.getLogger(__name__)
     
     # region agent log
-    LOG_PATH = r"d:\seminar\.cursor\debug.log"
+    # LOG_PATH được import từ config.py để đảm bảo nhất quán
     try:
         payload = {
             "sessionId": "debug-session",
@@ -68,8 +68,9 @@ def get_info_road(road_name: Annotated[str, "Tên tuyến đường"]) -> str:
         os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
         with open(LOG_PATH, "a", encoding="utf-8") as _f:
             _f.write(json.dumps(payload, ensure_ascii=False) + "\n")
-    except Exception:
-        pass
+    except Exception as e:
+        # Log exception để debug
+        logger.error(f"Error logging tool_called: {e}", exc_info=True)
     # endregion agent log
     
     analyzer = v1.state.analyzer
@@ -106,11 +107,30 @@ def get_info_road(road_name: Annotated[str, "Tên tuyến đường"]) -> str:
         }
         with open(LOG_PATH, "a", encoding="utf-8") as _f:
             _f.write(json.dumps(payload, ensure_ascii=False) + "\n")
-    except Exception:
-        pass
+    except Exception as e:
+        # Log exception để debug
+        logger.error(f"Error logging analyzer_check: {e}", exc_info=True)
     # endregion agent log
     
     if analyzer is None:
+        # Log khi analyzer None
+        try:
+            payload = {
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "H_ERROR",
+                "location": "tool_func.get_info_road",
+                "message": "analyzer_is_none",
+                "data": {
+                    "road_name": road_name,
+                    "error": "Analyzer chưa được khởi tạo",
+                },
+                "timestamp": int(time.time() * 1000),
+            }
+            with open(LOG_PATH, "a", encoding="utf-8") as _f:
+                _f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        except:
+            pass
         return json.dumps({"error": "Analyzer chưa được khởi tạo"}, ensure_ascii=False)
     
     try:
@@ -134,8 +154,8 @@ def get_info_road(road_name: Annotated[str, "Tên tuyến đường"]) -> str:
             }
             with open(LOG_PATH, "a", encoding="utf-8") as _f:
                 _f.write(json.dumps(payload, ensure_ascii=False) + "\n")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"Error logging analyzer_data: {e}", exc_info=True)
         # endregion agent log
         
         if not data:
@@ -160,8 +180,8 @@ def get_info_road(road_name: Annotated[str, "Tên tuyến đường"]) -> str:
             }
             with open(LOG_PATH, "a", encoding="utf-8") as _f:
                 _f.write(json.dumps(payload, ensure_ascii=False) + "\n")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"Error logging tool_result: {e}", exc_info=True)
         # endregion agent log
         
         return result
@@ -183,8 +203,8 @@ def get_info_road(road_name: Annotated[str, "Tên tuyến đường"]) -> str:
             }
             with open(LOG_PATH, "a", encoding="utf-8") as _f:
                 _f.write(json.dumps(payload, ensure_ascii=False) + "\n")
-        except Exception:
-            pass
+        except Exception as log_err:
+            logger.error(f"Error logging tool_error: {log_err}", exc_info=True)
         # endregion agent log
         
         logger.error(f"Error in get_info_road: {e}", exc_info=True)

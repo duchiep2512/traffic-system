@@ -108,8 +108,8 @@ class MeterPerPixelCalculator:
                     print(f"Khoảng cách pixel: {pixel_distance:.2f} px")
                     print(f"Khoảng cách thực tế: {distance} m")
                     print(f"Meter per pixel: {meter_per_pixel:.6f}")
-                    print("\nCopy giá trị này vào config.py:")
-                    print(f"METER_PER_PIXELS = [{meter_per_pixel:.6f}]")
+                    #print("\nCopy giá trị này vào config.py:")
+                    #print(f"METER_PER_PIXELS = [{meter_per_pixel:.6f}]")
                     print("="*50)
                 except ValueError:
                     print("Giá trị không hợp lệ!")
@@ -126,7 +126,7 @@ class MeterPerPixelCalculator:
         return None
 
 if __name__ == "__main__":
-    video_path = "./video_test/Ngã Tư Sở.mp4"
+    video_path = "../video_test/Ngã Tư Sở.mp4"
     
     calculator = MeterPerPixelCalculator(video_path)
     result = calculator.calculate()

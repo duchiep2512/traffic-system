@@ -98,7 +98,6 @@ async def login(
         if response is not None:
             # Expiry in seconds
             max_age = 60 * 60 * 24 * settings_server.ACCESS_TOKEN_EXPIRE_DAYS
-            # Note: For local HTTP development, secure=False. In production (HTTPS), set secure=True and SameSite=None
             response.set_cookie(
                 key="access_token",
                 value=token,

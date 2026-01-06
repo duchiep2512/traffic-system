@@ -14,17 +14,16 @@ def start_up():
     if not hasattr(state, 'agent') or state.agent is None:
         print("Đang khởi tạo Chat Agent...")
         try:
-            # Import ChatBotAgent nếu cần (có thể bị comment trong local mode)
             from app.services.chat_services.ChatBotAgent import ChatBotAgent
             state.agent = ChatBotAgent()
             print("Khởi tạo Chat Agent thành công")
         except ImportError as e:
-            print(f"⚠️ ChatBotAgent không khả dụng (có thể thiếu dependencies): {e}")
-            print("⚠️ Chatbot sẽ sử dụng mock responses")
+            print(f"ChatBotAgent không khả dụng (có thể thiếu dependencies): {e}")
+            print("Chatbot sẽ sử dụng mock responses")
             state.agent = None
         except Exception as e:
-            print(f"⚠️ Không thể khởi tạo Chat Agent: {e}")
-            print("⚠️ Chatbot sẽ sử dụng mock responses")
+            print(f"Không thể khởi tạo Chat Agent: {e}")
+            print("Chatbot sẽ sử dụng mock responses")
             state.agent = None
 
 @router.post(

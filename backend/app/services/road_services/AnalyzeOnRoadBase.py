@@ -8,9 +8,8 @@ import numpy as np
 from datetime import datetime
 from ultralytics import solutions
 from app.utils.transport_utils import *
-from app.core.config import settings_metric_transport
-# Log path for agent instrumentation
-LOG_PATH = r"d:\Smart-Traffic-Monitoring-System\seminar\.cursor\debug.log"
+from app.core.config import settings_metric_transport, LOG_PATH
+# Log path for agent instrumentation - import từ config.py để đảm bảo nhất quán
 # Thêm cái này để tránh xung đột
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
@@ -320,19 +319,18 @@ class AnalyzeOnRoadBase:
         video_path = os.path.abspath(self.path_video) if not os.path.isabs(self.path_video) else self.path_video
         
         if not os.path.exists(video_path):
-            print(f'❌ File video không tồn tại: {video_path}')
+            print(f'File video không tồn tại: {video_path}')
             return
         
-        # Mở video với đường dẫn absolute
         cam = cv2.VideoCapture(video_path)
 
         if not cam.isOpened():
-            print(f'❌ Không thể mở video: {video_path}')
-            print(f'   Đường dẫn tuyệt đối: {os.path.abspath(video_path)}')
-            print(f'   File tồn tại: {os.path.exists(video_path)}')
+            print(f'Không thể mở video: {video_path}')
+            print(f'Đường dẫn tuyệt đối: {os.path.abspath(video_path)}')
+            print(f'File tồn tại: {os.path.exists(video_path)}')
             return
         
-        print(f'✅ Đã mở video thành công: {os.path.basename(video_path)}')
+        print(f'Đã mở video thành công: {os.path.basename(video_path)}')
 
         target_size = (600, 400)
 

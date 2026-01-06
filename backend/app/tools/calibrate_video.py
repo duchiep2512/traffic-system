@@ -165,7 +165,7 @@ class VideoCalibrator:
         print("="*60)
 
 if __name__ == "__main__":
-    video_path = "./video_test/Ngã Tư Sở.mp4"
+    video_path = "../video_test/Ngã Tư Sở.mp4"
     
     calibrator = VideoCalibrator(video_path)
     calibrator.run()

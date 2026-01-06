@@ -8,8 +8,8 @@ from app.api import v1
 from app.services.road_services.AnalyzeOnRoadForMultiProcessing import AnalyzeOnRoadForMultiprocessing
 from app.utils.jwt_handler import get_current_user, get_current_user_ws
 from app.utils.transport_utils import enrich_info_with_thresholds
+from app.core.config import LOG_PATH
 
-LOG_PATH = r"d:\Smart-Traffic-Monitoring-System\seminar\.cursor\debug.log"
 def _agent_log(payload: dict):
     try:
         os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
@@ -50,17 +50,15 @@ async def get_road_names():
     })
     # endregion agent log
 
-    print(f"📡 GET /api/v1/roads_name called")
-    print(f"   Analyzer state: {v1.state.analyzer is not None}")
+    print(f"GET /api/v1/roads_name called")
+    print(f"Analyzer state: {v1.state.analyzer is not None}")
     
     if v1.state.analyzer is None:
-        # Trả về danh sách mặc định nếu analyzer chưa khởi tạo
-        print("⚠️ Analyzer chưa khởi tạo, trả về danh sách mặc định")
+        print("Analyzer chưa khởi tạo, trả về danh sách mặc định")
         return JSONResponse(content={"road_names": ["Ngã Tư Sở"]})
     
-    # Kiểm tra analyzer có thuộc tính names không
     if not hasattr(v1.state.analyzer, 'names'):
-        print("⚠️ Analyzer không có thuộc tính 'names'")
+        print("Analyzer không có thuộc tính 'names'")
         return JSONResponse(content={"road_names": ["Ngã Tư Sở"]})
     
     names = v1.state.analyzer.names if v1.state.analyzer.names else []
@@ -82,11 +80,10 @@ async def get_road_names():
     # endregion agent log
     
     if not names or len(names) == 0:
-        # Nếu analyzer chưa có names, trả về mặc định
-        print("⚠️ Analyzer chưa có road names, trả về danh sách mặc định")
+        print("Analyzer chưa có road names, trả về danh sách mặc định")
         return JSONResponse(content={"road_names": ["Ngã Tư Sở"]})
     
-    print(f"✅ Trả về {len(names)} road names: {names}")
+    print(f"Trả về {len(names)} road names: {names}")
     return JSONResponse(content={"road_names": names})
 
 @router.websocket(

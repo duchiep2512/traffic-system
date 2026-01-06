@@ -6,7 +6,22 @@ from app.api import v1
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import RedirectResponse
 from app.db.base import init_database, close_database
-from app.core.config import settings_network
+from app.core.config import settings_network, LOG_PATH
+
+def init_log_directory():
+    """Khởi tạo thư mục logs và file debug.log"""
+    try:
+        log_dir = os.path.dirname(LOG_PATH)
+        os.makedirs(log_dir, exist_ok=True)
+        
+        if not os.path.exists(LOG_PATH):
+            with open(LOG_PATH, "w", encoding="utf-8") as f:
+                f.write("")
+            print(f"Đã tạo file log: {LOG_PATH}")
+        else:
+            print(f"File log đã tồn tại: {LOG_PATH}")
+    except Exception as e:
+        print(f"Không thể khởi tạo log directory: {e}")
 
 os.environ["OPENCV_VIDEOIO_PRIORITY_MSMF"] = "0"
 os.environ["OPENCV_VIDEOIO_PRIORITY_DSHOW"] = "1"
@@ -58,15 +73,14 @@ signal.signal(signal.SIGTERM, signal_handler)
 
 @app.on_event("startup")
 async def startup_event():
-    """Khởi tạo MongoDB connection khi khởi động"""
+    init_log_directory()
     print("Initializing MongoDB connection...")
     try:
         await init_database()
-        print("✅ MongoDB đã sẵn sàng.")
+        print("MongoDB đã sẵn sàng.")
     except Exception as e:
-        print(f"❌ Lỗi khởi tạo MongoDB: {e}")
-        # Không raise để app vẫn có thể chạy ở local mode
-        print("⚠️ App sẽ chạy ở chế độ không có database")
+        print(f"Lỗi khởi tạo MongoDB: {e}")
+        print("App sẽ chạy ở chế độ không có database")
 
 @app.on_event("shutdown")
 async def shutdown():

@@ -5,14 +5,12 @@ import numpy as np
 load_dotenv()
 
 APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BACKEND_DIR = os.path.dirname(APP_DIR)
+LOG_PATH = os.path.join(BACKEND_DIR, "logs", "debug.log")
 
 class SettingServer:
     PROJECT_NAME = "FastAPI CRUD with JWT"
-    # MongoDB connection string
-    # Default: không dùng authentication (đơn giản hơn cho local)
-    # Nếu có authentication: mongodb://admin:admin123@localhost:27017/transportation_system?authSource=admin
     MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017/transportation_system")
-    # PostgreSQL (deprecated, có thể xóa)
     DATABASE_URL = os.getenv("DATABASE_URL")
     JWT_SECRET = os.getenv("JWT_SECRET_KEY")
     JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")
@@ -28,11 +26,11 @@ class SettingMetricTransport:
     ]
 
     PATH_VIDEOS = [
-       # "./video_test/Văn Quán.mp4",
        os.path.join(APP_DIR, 'video_test', 'Văn Phú.mp4'),
+       os.path.join(APP_DIR, 'video_test', 'Văn Quán.mp4'),
        os.path.join(APP_DIR, 'video_test', 'Nguyễn Trãi.mp4'),
-        os.path.join(APP_DIR, 'video_test', 'Ngã Tư Sở.mp4'),
-        os.path.join(APP_DIR, 'video_test', 'Đường Láng.mp4'),
+       os.path.join(APP_DIR, 'video_test', 'Ngã Tư Sở.mp4'),
+       os.path.join(APP_DIR, 'video_test', 'Đường Láng.mp4'),
     ]
 
     METER_PER_PIXELS = [
@@ -52,17 +50,20 @@ class SettingChatBot:
     # Chọn model có generateContent trong list_models (free/key-dependent).
     # Kết quả từ list_models hiện tại: dùng ổn "gemini-1.5-flash" (có tool calling).
     # Lưu ý quota free: ~5 req/phút => nên delay 12-15s giữa các request khi test.
+    
+    _google_api_key = os.getenv("GOOGLE_API_KEY")
+    if not _google_api_key:
+        print("WARNING: GOOGLE_API_KEY không được tìm thấy trong environment variables!")
+        print("Vui lòng tạo file .env trong thư mục backend và thêm: GOOGLE_API_KEY=your_api_key_here")
+        print("Hoặc export GOOGLE_API_KEY trong terminal trước khi chạy server")
+    else:
+        print(f"GOOGLE_API_KEY đã được tìm thấy (length: {len(_google_api_key)} chars)")
+    
     LLM = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash-lite",
+        model="gemini-2.5-flash",
         temperature=0.6,
         max_output_tokens=1024,
     )
-    # Dùng ollama local api llm
-    
-    # from langchain_openai import OpenAI
-    # LLM = OpenAI(model_name="gemma3:4b",
-    #              temperature=0.6,
-    #              max_tokens=1024)
 
 class SettingNetwork:
     BASE_URL_API = "http://localhost:8000"
@@ -74,10 +75,6 @@ settings_chat_bot = SettingChatBot()
 settings_network = SettingNetwork()
 setting_chatbot = SettingChatBot()
 
-# ================= Traffic Thresholds (per-road) =================
-# v: average speed threshold (km/h) - >= v => fast, else slow
-# c1: vehicle count threshold for busy
-# c2: vehicle count threshold for congested
 
 from typing import Dict, TypedDict
 

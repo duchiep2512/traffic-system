@@ -7,7 +7,7 @@ Hiện tại sẽ chưa có lưu thông tin id đăng nhập, user, history chat
 1. From project root, navigate to the app directory:
 
 ```bash
-cd Backend
+cd backend
 ```
 2. Install Python dependencies:
 
@@ -18,7 +18,7 @@ pip install -r requirements_cpu.txt
 ```
 3. Run backend
 ```bash
-python -m uvicorn app.main_local:app --reload --host 0.0.0.0 --port 8000
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### Frontend Setup

@@ -24,10 +24,15 @@ function isSameApiOrigin(url: string): boolean {
 const ChatImageFromUrl = ({ url }: { url: string }) => {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
     let cancelled = false;
     async function fetchImg() {
       setError(false);
+      setLoading(true);
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:ChatImageFromUrl',message:'Fetching image',data:{url,urlLength:url.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H_IMAGE_FETCH'})}).catch(()=>{});
+      // #endregion
       try {
         const token =
           typeof window !== "undefined"
@@ -35,15 +40,52 @@ const ChatImageFromUrl = ({ url }: { url: string }) => {
             : null;
         const isLocalApi = isSameApiOrigin(url);
         const headers: HeadersInit = {};
-        if (token && isLocalApi) {
+        // Don't add Authorization header for /frames_no_auth endpoints - they don't require authentication
+        if (token && isLocalApi && !url.includes("/frames_no_auth/")) {
           headers["Authorization"] = `Bearer ${token}`;
         }
-        const res = await fetch(url, { headers, credentials: "include" });
-        if (!res.ok) throw new Error("fetch error");
+        // #region agent log
+        fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:ChatImageFromUrl',message:'Before fetch',data:{url,hasToken:!!token,isLocalApi},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H_IMAGE_FETCH'})}).catch(()=>{});
+        // #endregion
+        // #region agent log
+        const useCredentials = !url.includes("/frames_no_auth/");
+        fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:ChatImageFromUrl',message:'About to fetch',data:{url,headers:Object.keys(headers),hasAuthHeader:!!headers['Authorization'],credentials:useCredentials?'include':'omit',isNoAuthEndpoint:url.includes("/frames_no_auth/")},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H_IMAGE_FETCH'})}).catch(()=>{});
+        // #endregion
+        const res = await fetch(url, { headers, credentials: useCredentials ? "include" : "omit" });
+        // #region agent log
+        fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:ChatImageFromUrl',message:'After fetch',data:{url,status:res.status,statusText:res.statusText,ok:res.ok,contentType:res.headers.get('content-type')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H_IMAGE_FETCH'})}).catch(()=>{});
+        // #endregion
+        if (!res.ok) {
+          // #region agent log
+          fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:ChatImageFromUrl',message:'Fetch failed',data:{url,status:res.status,statusText:res.statusText},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H_IMAGE_FETCH'})}).catch(()=>{});
+          // #endregion
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
         const blob = await res.blob();
-        if (!cancelled) setBlobUrl(URL.createObjectURL(blob));
-      } catch {
-        if (!cancelled) setError(true);
+        // #region agent log
+        fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:ChatImageFromUrl',message:'Blob received',data:{url,blobSize:blob.size,blobType:blob.type},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H_IMAGE_FETCH'})}).catch(()=>{});
+        // #endregion
+        if (!cancelled) {
+          const objectUrl = URL.createObjectURL(blob);
+          setBlobUrl(objectUrl);
+          setLoading(false);
+          // #region agent log
+          fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:ChatImageFromUrl',message:'Image loaded',data:{url,blobUrl:objectUrl.substring(0,50)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H_IMAGE_FETCH'})}).catch(()=>{});
+          // #endregion
+        }
+      } catch (err) {
+        // #region agent log
+        const errorDetails = err instanceof Error ? {
+          name: err.name,
+          message: err.message,
+          stack: err.stack?.substring(0, 200)
+        } : { error: String(err) };
+        fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:ChatImageFromUrl',message:'Fetch error',data:{url,error:errorDetails,urlDecoded:decodeURIComponent(url),isLocalhost:url.includes('localhost')||url.includes('127.0.0.1')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H_IMAGE_FETCH'})}).catch(()=>{});
+        // #endregion
+        if (!cancelled) {
+          setError(true);
+          setLoading(false);
+        }
       }
     }
     fetchImg();
@@ -55,7 +97,7 @@ const ChatImageFromUrl = ({ url }: { url: string }) => {
   }, [url]);
   if (error)
     return <div className="text-xs text-red-500">Không thể tải ảnh</div>;
-  if (!blobUrl)
+  if (loading || !blobUrl)
     return <div className="w-32 h-24 bg-gray-200 animate-pulse rounded" />;
   return (
     <img
@@ -330,7 +372,12 @@ function addTokenToImageUrl(url: string): string {
   // Clean up trailing & or ?
   url = url.replace(/[?&]$/, "");
 
-  // Only add token if it's a local API URL
+  // Don't add token to /frames_no_auth endpoints - they don't require authentication
+  if (url.includes("/frames_no_auth/")) {
+    return url;
+  }
+
+  // Only add token if it's a local API URL and not a no_auth endpoint
   if (url.includes("localhost:8000") || url.includes("127.0.0.1:8000")) {
     const token = getToken();
     if (token) {
@@ -481,7 +528,7 @@ const ChatInterface = ({ trafficData }: ChatInterfaceProps) => {
       const token = getToken();
       console.log("[ChatInterface] Token change event received");
       // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:444',message:'Token change event received',data:{tokenPrefix:token?.substring(0,20),currentTokenPrefix:currentToken?.substring(0,20),tokensMatch:token===currentToken},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:handleTokenChange',message:'Token change event received',data:{tokenPrefix:token?.substring(0,20),currentTokenPrefix:currentToken?.substring(0,20),tokensMatch:token===currentToken},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
       // #endregion
       if (token !== currentToken) {
         // Clear messages immediately when token changes
@@ -504,7 +551,7 @@ const ChatInterface = ({ trafficData }: ChatInterfaceProps) => {
       if (token !== currentToken) {
         console.log("[ChatInterface] Token changed (polling), reloading messages");
         // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:463',message:'Token changed (polling)',data:{oldTokenPrefix:currentToken?.substring(0,20),newTokenPrefix:token?.substring(0,20)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:tokenPolling',message:'Token changed (polling)',data:{oldTokenPrefix:currentToken?.substring(0,20),newTokenPrefix:token?.substring(0,20)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
         // #endregion
         // Clear messages immediately when token changes
         setMessages([]);
@@ -562,8 +609,14 @@ const ChatInterface = ({ trafficData }: ChatInterfaceProps) => {
   }, [scrollToBottom]);
 
   // Chat WebSocket with authentication - setup trước để dùng trong handlers
-  const token = localStorage.getItem(authConfig.TOKEN_KEY);
+  const token = getToken(); // Use getToken() to read from sessionStorage, not localStorage
   const chatWsUrl = endpoints.chatWs;
+  
+  // #region agent log
+  useEffect(() => {
+    fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:tokenCheck',message:'Token check on mount',data:{hasToken:!!token,tokenLength:token?.length||0,chatWsUrl},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+  }, []);
+  // #endregion
 
   // Show message if no token
   useEffect(() => {
@@ -582,6 +635,12 @@ const ChatInterface = ({ trafficData }: ChatInterfaceProps) => {
     maxReconnectAttempts: 5,
     authToken: token,
   });
+  
+  // #region agent log
+  useEffect(() => {
+    fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:wsStatus',message:'Chat WebSocket status',data:{isWsConnected,wsError,hasToken:!!token},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+  }, [isWsConnected, wsError, token]);
+  // #endregion
 
   useEffect(() => {
     if (wsError) {
@@ -749,6 +808,10 @@ const ChatInterface = ({ trafficData }: ChatInterfaceProps) => {
       // Process text to add authentication token to any image URLs in text
       const processedText = processImageUrlsInText(responseText ?? "");
 
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:processResponse',message:'Processing WebSocket response',data:{hasResponseImage:!!responseImage,responseImageLength:responseImage?.length||0,responseImage,imageUrlsLength:imageUrls.length,imageUrls,hasText:!!processedText,textLength:processedText.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H_IMAGE_FRONTEND'})}).catch(()=>{});
+      // #endregion
+
       console.log("Processed Response:", {
         text: processedText,
         images: imageUrls,
@@ -764,6 +827,10 @@ const ChatInterface = ({ trafficData }: ChatInterfaceProps) => {
         time: new Date().toLocaleTimeString("vi-VN"),
         image: imageUrls.length > 0 ? imageUrls : undefined,
       };
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatInterface.tsx:createMessage',message:'AI message created',data:{messageId:aiMessage.id,hasText:!!aiMessage.text,hasImage:!!aiMessage.image,imageCount:aiMessage.image?.length||0,imageUrls:aiMessage.image},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H_IMAGE_FRONTEND'})}).catch(()=>{});
+      // #endregion
       
       // Save AI response to server (MongoDB)
       const token = getToken();

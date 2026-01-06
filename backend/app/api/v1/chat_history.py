@@ -96,7 +96,7 @@ async def create_chat_message(
     "/messages",
     response_model=List[ChatMessageListResponse],
     summary="Lấy lịch sử chat",
-    description="API lấy lịch sử chat của user hiện tại với phân trang và filter theo thời gian. Trả về danh sách tin nhắn theo thứ tự cũ → mới. Yêu cầu JWT authentication."
+    description="API lấy lịch sử chat của user hiện tại với phân trang và filter theo thời gian. Trả về danh sách tin nhắn theo thứ tự cũ đến mới. Yêu cầu JWT authentication."
 )
 async def get_chat_history(
     limit: int = Query(default=100, ge=1, le=1000),
@@ -111,7 +111,7 @@ async def get_chat_history(
     - **offset**: Bỏ qua bao nhiêu tin nhắn đầu (pagination)
     - **since**: Chỉ lấy tin nhắn sau thời điểm này (ISO format)
     
-    Returns danh sách tin nhắn theo thứ tự thời gian (cũ → mới)
+    Returns danh sách tin nhắn theo thứ tự thời gian (cũ đến mới)
     """
     import json
     log_data = {

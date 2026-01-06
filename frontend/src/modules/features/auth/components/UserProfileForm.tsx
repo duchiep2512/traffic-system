@@ -41,6 +41,9 @@ function UserProfile() {
   // Fetch current user data
   useEffect(() => {
     const fetchUserData = async () => {
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'UserProfileForm.tsx:fetchUserData',message:'Profile fetchUserData called',data:{hasToken:!!getToken()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       try {
         const token = getToken();
         if (!token) {
@@ -52,6 +55,9 @@ function UserProfile() {
         });
         if (res.ok) {
           const data = await res.json();
+          // #region agent log
+          fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'UserProfileForm.tsx:fetchUserData',message:'Profile fetchUserData success',data:{username:data?.username,email:data?.email},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+          // #endregion
           setUsername(data.username || "");
           setEmail(data.email || "");
           setPhone(data.phone_number || "");
@@ -66,9 +72,15 @@ function UserProfile() {
           // Dispatch event to notify App.tsx
           window.dispatchEvent(new Event('userDataUpdated'));
         } else {
+          // #region agent log
+          fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'UserProfileForm.tsx:fetchUserData',message:'Profile fetchUserData failed',data:{status:res.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+          // #endregion
           toast.error("Không thể tải thông tin người dùng");
         }
-      } catch {
+      } catch (error) {
+        // #region agent log
+        fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'UserProfileForm.tsx:fetchUserData',message:'Profile fetchUserData error',data:{error:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         toast.error("Lỗi kết nối");
       }
     };

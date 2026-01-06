@@ -17,7 +17,8 @@ Khi import module, tất cả code ở module level sẽ được thực thi l�
 
 # Không bỏ ra ngoài Class vì mỗi khi tạo child process nó sẽ tạo thêm một lần nữa. Còn bỏ vào class nó chỉ khởi tạo 1 lần 
 # Những class var cũng sẽ được khởi tạo cho nên tránh để những biến shared_data ở mức class
-LOG_PATH = r"d:\Smart-Traffic-Monitoring-System\seminar\.cursor\debug.log"
+from app.core.config import LOG_PATH
+# LOG_PATH được import từ config.py để đảm bảo nhất quán trên mọi máy
 
 
 class AnalyzeOnRoadForMultiprocessing():
@@ -138,8 +139,8 @@ class AnalyzeOnRoadForMultiprocessing():
             
             # Kiểm tra file có tồn tại không
             if not os.path.exists(path_video):
-                print(f"⚠️ Cảnh báo: File video không tồn tại: {path_video}")
-                print(f"⚠️ Bỏ qua video này: {name}")
+                print(f"Cảnh báo: File video không tồn tại: {path_video}")
+                print(f"Bỏ qua video này: {name}")
                 continue
             
             # Tạo các manager objects

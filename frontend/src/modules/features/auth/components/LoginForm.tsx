@@ -33,7 +33,7 @@ function Login({ onLoginSuccess }: { onLoginSuccess?: () => void }) {
       const data = await res.json();
       if (res.ok && data.access_token) {
         // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'LoginForm.tsx:33',message:'Login successful',data:{tokenPrefix:data.access_token.substring(0,20),email},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'LoginForm.tsx:login',message:'Login successful',data:{tokenPrefix:data.access_token.substring(0,20),email},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
         // #endregion
         
         // Clear old chat data before setting new token
@@ -43,7 +43,7 @@ function Login({ onLoginSuccess }: { onLoginSuccess?: () => void }) {
         setToken(data.access_token);
         
         // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/4061f441-6473-480e-8d88-5fde7bf69a76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'LoginForm.tsx:42',message:'Token saved and event dispatched',data:{tokenPrefix:data.access_token.substring(0,20)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'LoginForm.tsx:login',message:'Token saved and event dispatched',data:{tokenPrefix:data.access_token.substring(0,20)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
         // #endregion
         
         // Dispatch custom event to notify ChatInterface of token change

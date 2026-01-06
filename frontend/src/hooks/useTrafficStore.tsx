@@ -15,17 +15,29 @@ export function TrafficProvider({ children }: { children: React.ReactNode }) {
     let mounted = true;
 
     const fetchRoads = async () => {
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useTrafficStore.tsx:fetchRoads',message:'fetchRoads called',data:{url:endpoints.roadNames},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       try {
         const res = await fetch(endpoints.roadNames);
         if (!mounted) return;
         if (!res.ok) {
+          // #region agent log
+          fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useTrafficStore.tsx:fetchRoads',message:'fetchRoads failed',data:{status:res.status,statusText:res.statusText},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+          // #endregion
           setAllowedRoads([]);
           return;
         }
         const json = await res.json();
         const names: string[] = json?.road_names ?? [];
+        // #region agent log
+        fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useTrafficStore.tsx:fetchRoads',message:'fetchRoads success',data:{roadCount:names.length,roads:names},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
         setAllowedRoads(names);
-      } catch {
+      } catch (error) {
+        // #region agent log
+        fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useTrafficStore.tsx:fetchRoads',message:'fetchRoads error',data:{error:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
         if (!mounted) return;
         setAllowedRoads([]);
       }
@@ -41,6 +53,12 @@ export function TrafficProvider({ children }: { children: React.ReactNode }) {
   // Use existing hook to open ws connections for all roads
   const { trafficData, connections, isAnyConnected, areAllConnected } =
     useMultipleTrafficInfo(allowedRoads);
+  
+  // #region agent log
+  useEffect(() => {
+    fetch('http://127.0.0.1:7244/ingest/f3e82a8f-dd4a-491a-a1d2-3af9f252196f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useTrafficStore.tsx:wsStatus',message:'WebSocket status',data:{allowedRoadsCount:allowedRoads.length,isAnyConnected,areAllConnected,trafficDataKeys:Object.keys(trafficData||{}),connectionsCount:Object.keys(connections||{}).length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+  }, [allowedRoads, isAnyConnected, areAllConnected, trafficData, connections]);
+  // #endregion
 
   // Build and maintain historical data capped to MAX_HISTORY
   const historyRef = useRef<HistoricalDataPoint[]>([]);
