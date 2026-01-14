@@ -46,8 +46,8 @@ app = FastAPI(
     docs_url="/docs",  
     redoc_url="/redoc", 
     contact={
-        "name": "Lê Việt Anh",
-        "email": "levietanhtrump@gmail.com",
+        "name": "Đức Hiệp",
+        "email": "duchiep2512@gmail.com",
     },
     
 )
