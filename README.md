@@ -1,6 +1,6 @@
 # Traffic System
 
-Hệ thống phân tích giao thông thông minh sử dụng AI để xử lý video và phân tích dữ liệu giao thông.
+Xây dựng website hệ thống phân tích giao thông thông minh sử dụng AI để xử lý video và phân tích dữ liệu giao thông. Có tính năng bảo mật cao, lưu trữ thông tin user và chat history. giúp người dùng có thể
 
 ## Mục lục
 
