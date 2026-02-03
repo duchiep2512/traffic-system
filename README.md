@@ -105,6 +105,40 @@ Frontend sẽ chạy tại: `http://localhost:5173` (hoặc port khác nếu đ�
 3. **Upload video**: Sử dụng giao diện để upload video cần phân tích
 4. **Xem kết quả**: Theo dõi quá trình phân tích và xem kết quả
 
+## Demo ứng dụng
+
+### Đăng ký và Đăng nhập
+
+**Đăng ký tài khoản:**
+
+![Sign Up](image/Sign%20up.png)
+
+**Đăng nhập:**
+
+![Sign In](image/Sign%20in.png)
+
+### Dashboard - Giao diện chính
+
+**Tổng quan hệ thống:**
+
+![Dashboard 1](image/dashboard%201.jpg)
+
+![Dashboard 2](image/dashboard%202.jpg)
+
+![Dashboard 3](image/dashboard%203.jpg)
+
+### Tính năng giám sát
+
+**Giám sát giao thông thời gian thực:**
+
+![Real-time Monitoring](image/Real%20time%20monitoring.png)
+
+### Chatbot hỗ trợ
+
+**Giao diện chat với AI:**
+
+![Chat Box](image/Chat%20box.png)
+
 ## Cấu trúc dự án
 
 ```
